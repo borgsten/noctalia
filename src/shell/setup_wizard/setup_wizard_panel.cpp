@@ -54,12 +54,13 @@ namespace {
       {"theme.scheme.muted", "muted"},
   };
 
-  std::unique_ptr<Label> makeLabel(std::string_view text, float fontSize, const ColorSpec& color, bool bold = false) {
+  std::unique_ptr<Label> makeLabel(std::string_view text, float fontSize, const ColorSpec& color,
+                                   FontWeight fontWeight = FontWeight::Normal) {
     auto label = std::make_unique<Label>();
     label->setText(text);
     label->setFontSize(fontSize);
     label->setColor(color);
-    label->setBold(bold);
+    label->setFontWeight(fontWeight);
     return label;
   }
 
@@ -172,8 +173,8 @@ void SetupWizardPanel::create() {
 
     auto copy = makeTextColumn();
     copy->setGap(Style::spaceXs * scale);
-    copy->addChild(
-        makeLabel(i18n::tr("setup-wizard.title"), 18.0f * scale, colorSpecFromRole(ColorRole::OnSurface), true));
+    copy->addChild(makeLabel(i18n::tr("setup-wizard.title"), 18.0f * scale, colorSpecFromRole(ColorRole::OnSurface),
+                             FontWeight::Bold));
     copy->addChild(makeLabel(i18n::tr("setup-wizard.subtitle"), Style::fontSizeBody * scale,
                              colorSpecFromRole(ColorRole::OnSurfaceVariant)));
     header->addChild(std::move(copy));
@@ -190,7 +191,7 @@ void SetupWizardPanel::create() {
     {
       auto col = makeTextColumn();
       col->addChild(makeLabel(i18n::tr("settings.schema.shell.telemetry.label"), Style::fontSizeBody * scale,
-                              colorSpecFromRole(ColorRole::OnSurface), true));
+                              colorSpecFromRole(ColorRole::OnSurface), FontWeight::Bold));
       auto description = makeLabel(i18n::tr("settings.schema.shell.telemetry.description"),
                                    Style::fontSizeCaption * scale, colorSpecFromRole(ColorRole::OnSurfaceVariant));
       description->setMaxLines(8);
@@ -216,7 +217,7 @@ void SetupWizardPanel::create() {
     {
       auto col = makeTextColumn();
       col->addChild(makeLabel(i18n::tr("setup-wizard.wallpaper"), Style::fontSizeBody * scale,
-                              colorSpecFromRole(ColorRole::OnSurface), true));
+                              colorSpecFromRole(ColorRole::OnSurface), FontWeight::Bold));
       const std::string currentPath = m_config->getDefaultWallpaperPath();
       auto pathLabel = makeLabel(currentPath.empty() ? i18n::tr("setup-wizard.no-wallpaper-selected") : currentPath,
                                  Style::fontSizeCaption * scale, colorSpecFromRole(ColorRole::OnSurfaceVariant));

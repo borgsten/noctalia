@@ -72,12 +72,13 @@ namespace {
     return palettePreviewFromMetadata(palette.preview.dark);
   }
 
-  std::unique_ptr<Label> makeLabel(std::string_view text, float fontSize, const ColorSpec& color, bool bold = false) {
+  std::unique_ptr<Label> makeLabel(std::string_view text, float fontSize, const ColorSpec& color,
+                                   FontWeight fontWeight = FontWeight::Normal) {
     auto label = std::make_unique<Label>();
     label->setText(text);
     label->setFontSize(fontSize);
     label->setColor(color);
-    label->setBold(bold);
+    label->setFontWeight(fontWeight);
     return label;
   }
 
@@ -558,7 +559,7 @@ std::unique_ptr<Flex> SettingsWindow::buildFilterRow(float scale, const std::str
   filters->addChild(std::make_unique<Spacer>());
 
   auto advancedLabel = makeLabel(i18n::tr("settings.badges.advanced"), Style::fontSizeBody * scale,
-                                 colorSpecFromRole(ColorRole::OnSurfaceVariant), false);
+                                 colorSpecFromRole(ColorRole::OnSurfaceVariant), FontWeight::Normal);
   filters->addChild(std::move(advancedLabel));
 
   auto advancedToggle = std::make_unique<Toggle>();
@@ -581,7 +582,7 @@ std::unique_ptr<Flex> SettingsWindow::buildFilterRow(float scale, const std::str
   filters->addChild(std::move(advancedToggle));
 
   auto overriddenLabel = makeLabel(i18n::tr("settings.window.filter-modified"), Style::fontSizeBody * scale,
-                                   colorSpecFromRole(ColorRole::OnSurfaceVariant), false);
+                                   colorSpecFromRole(ColorRole::OnSurfaceVariant), FontWeight::Normal);
   filters->addChild(std::move(overriddenLabel));
 
   auto overriddenToggle = std::make_unique<Toggle>();
@@ -647,8 +648,9 @@ std::unique_ptr<Flex> SettingsWindow::buildStatusRow(float scale) {
   status->setBorder(colorSpecFromRole(m_statusIsError ? ColorRole::Error : ColorRole::Secondary, 0.45f),
                     Style::borderWidth);
 
-  auto message = makeLabel(m_statusMessage, Style::fontSizeCaption * scale,
-                           colorSpecFromRole(m_statusIsError ? ColorRole::Error : ColorRole::Secondary), true);
+  auto message =
+      makeLabel(m_statusMessage, Style::fontSizeCaption * scale,
+                colorSpecFromRole(m_statusIsError ? ColorRole::Error : ColorRole::Secondary), FontWeight::Bold);
   message->setFlexGrow(1.0f);
   status->addChild(std::move(message));
 

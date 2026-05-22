@@ -47,12 +47,13 @@
 namespace settings {
   namespace {
 
-    std::unique_ptr<Label> makeLabel(std::string_view text, float fontSize, const ColorSpec& color, bool bold = false) {
+    std::unique_ptr<Label> makeLabel(std::string_view text, float fontSize, const ColorSpec& color,
+                                     FontWeight fontWeight = FontWeight::Normal) {
       auto label = std::make_unique<Label>();
       label->setText(text);
       label->setFontSize(fontSize);
       label->setColor(color);
-      label->setBold(bold);
+      label->setFontWeight(fontWeight);
       return label;
     }
 
@@ -450,7 +451,7 @@ namespace settings {
       iconCol->setAlign(FlexAlign::Stretch);
       iconCol->setGap(Style::spaceSm * scale);
       iconCol->addChild(makeLabel(i18n::tr("settings.session-actions.icon-label"), Style::fontSizeCaption * scale,
-                                  colorSpecFromRole(ColorRole::OnSurfaceVariant), false));
+                                  colorSpecFromRole(ColorRole::OnSurfaceVariant), FontWeight::Normal));
 
       auto glyphBtnRow = std::make_unique<Flex>();
       glyphBtnRow->setDirection(FlexDirection::Horizontal);
@@ -517,7 +518,7 @@ namespace settings {
 
       fields->addChild(makeLabel(i18n::tr("settings.session-actions.kind-section-label"),
                                  Style::fontSizeCaption * scale, colorSpecFromRole(ColorRole::OnSurfaceVariant),
-                                 false));
+                                 FontWeight::Normal));
       auto kindSelect = std::make_unique<Select>();
       kindSelect->setOptions(optionLabels(kindOptions));
       if (const auto ki = optionIndex(kindOptions, row.action)) {
@@ -543,7 +544,7 @@ namespace settings {
       labelBlock->setGap(Style::spaceXs * scale);
       labelBlock->setFlexGrow(1.0f);
       labelBlock->addChild(makeLabel(i18n::tr("settings.session-actions.label-field"), Style::fontSizeCaption * scale,
-                                     colorSpecFromRole(ColorRole::OnSurfaceVariant), false));
+                                     colorSpecFromRole(ColorRole::OnSurfaceVariant), FontWeight::Normal));
       auto labelIn = std::make_unique<Input>();
       labelIn->setValue(row.label.value_or(""));
       labelIn->setPlaceholder(i18n::tr("settings.session-actions.label-placeholder"));
@@ -574,7 +575,7 @@ namespace settings {
       cmdBlock->setGap(Style::spaceXs * scale);
       cmdBlock->setFlexGrow(1.0f);
       cmdBlock->addChild(makeLabel(i18n::tr("settings.session-actions.command-label"), Style::fontSizeCaption * scale,
-                                   colorSpecFromRole(ColorRole::OnSurfaceVariant), false));
+                                   colorSpecFromRole(ColorRole::OnSurfaceVariant), FontWeight::Normal));
       auto cmdIn = std::make_unique<Input>();
       cmdIn->setValue(row.command.value_or(""));
       cmdIn->setPlaceholder(i18n::tr("settings.session-actions.command-placeholder"));
@@ -606,7 +607,7 @@ namespace settings {
       variantBlock->setFlexGrow(1.0f);
       variantBlock->addChild(makeLabel(i18n::tr("settings.session-actions.variant-label"),
                                        Style::fontSizeCaption * scale, colorSpecFromRole(ColorRole::OnSurfaceVariant),
-                                       false));
+                                       FontWeight::Normal));
       auto variantSelect = std::make_unique<Select>();
       const std::vector<SelectOption> variantOptions = sessionActionVariantOptions();
       variantSelect->setOptions(optionLabels(variantOptions));
@@ -639,7 +640,7 @@ namespace settings {
       shortcutBlock->setFlexGrow(1.0f);
       shortcutBlock->addChild(makeLabel(i18n::tr("settings.session-actions.shortcut-label"),
                                         Style::fontSizeCaption * scale, colorSpecFromRole(ColorRole::OnSurfaceVariant),
-                                        false));
+                                        FontWeight::Normal));
 
       auto shortcutRecorder = std::make_unique<KeybindRecorder>();
       shortcutRecorder->setScale(scale);
@@ -712,8 +713,9 @@ namespace settings {
       suspendLockGrp->setGap(Style::spaceSm * scale);
       suspendLockGrp->setFillWidth(true);
       suspendLockGrp->setVisible(showSuspendLock);
-      auto suspendLockLabel = makeLabel(i18n::tr("settings.idle.behavior.lock-before-suspend-label"),
-                                        Style::fontSizeBody * scale, colorSpecFromRole(ColorRole::OnSurface), false);
+      auto suspendLockLabel =
+          makeLabel(i18n::tr("settings.idle.behavior.lock-before-suspend-label"), Style::fontSizeBody * scale,
+                    colorSpecFromRole(ColorRole::OnSurface), FontWeight::Normal);
       suspendLockLabel->setFlexGrow(1.0f);
       suspendLockGrp->addChild(std::move(suspendLockLabel));
       auto suspendLockToggle = std::make_unique<Toggle>();
@@ -731,8 +733,8 @@ namespace settings {
         block->setDirection(FlexDirection::Vertical);
         block->setAlign(FlexAlign::Stretch);
         block->setGap(Style::spaceXs * scale);
-        block->addChild(
-            makeLabel(label, Style::fontSizeCaption * scale, colorSpecFromRole(ColorRole::OnSurfaceVariant), false));
+        block->addChild(makeLabel(label, Style::fontSizeCaption * scale, colorSpecFromRole(ColorRole::OnSurfaceVariant),
+                                  FontWeight::Normal));
         auto input = std::make_unique<Input>();
         input->setValue(target);
         input->setPlaceholder(placeholder);
@@ -770,7 +772,7 @@ namespace settings {
       kindBlock->setGap(Style::spaceXs * scale);
       kindBlock->addChild(makeLabel(i18n::tr("settings.idle.behavior.kind-section-label"),
                                     Style::fontSizeCaption * scale, colorSpecFromRole(ColorRole::OnSurfaceVariant),
-                                    false));
+                                    FontWeight::Normal));
       auto kindSelect = std::make_unique<Select>();
       kindSelect->setOptions(optionLabels(idleActionOptions));
       if (const auto ki = optionIndex(idleActionOptions, norm.action)) {
@@ -805,7 +807,7 @@ namespace settings {
       nameBlock->setAlign(FlexAlign::Stretch);
       nameBlock->setGap(Style::spaceXs * scale);
       nameBlock->addChild(makeLabel(i18n::tr("settings.idle.behavior.name-label"), Style::fontSizeCaption * scale,
-                                    colorSpecFromRole(ColorRole::OnSurfaceVariant), false));
+                                    colorSpecFromRole(ColorRole::OnSurfaceVariant), FontWeight::Normal));
       auto nameIn = std::make_unique<Input>();
       nameIn->setValue(row.name);
       nameIn->setPlaceholder(i18n::tr("settings.idle.behavior.name-placeholder"));
@@ -835,7 +837,7 @@ namespace settings {
       timeoutBlock->setAlign(FlexAlign::Stretch);
       timeoutBlock->setGap(Style::spaceXs * scale);
       timeoutBlock->addChild(makeLabel(i18n::tr("settings.idle.behavior.timeout-label"), Style::fontSizeCaption * scale,
-                                       colorSpecFromRole(ColorRole::OnSurfaceVariant), false));
+                                       colorSpecFromRole(ColorRole::OnSurfaceVariant), FontWeight::Normal));
       auto timeoutIn = std::make_unique<Input>();
       timeoutIn->setValue(std::format("{}", row.timeoutSeconds));
       timeoutIn->setPlaceholder("660");
@@ -951,7 +953,8 @@ namespace settings {
       titleGlyph->setColor(colorSpecFromRole(ColorRole::Primary));
       titleRow->addChild(std::move(titleGlyph));
 
-      titleRow->addChild(makeLabel(title, Style::fontSizeHeader * scale, colorSpecFromRole(ColorRole::Primary), true));
+      titleRow->addChild(
+          makeLabel(title, Style::fontSizeHeader * scale, colorSpecFromRole(ColorRole::Primary), FontWeight::Bold));
 
       section->addChild(std::move(titleRow));
       auto* raw = section.get();
@@ -971,10 +974,11 @@ namespace settings {
         groupHeader->setPadding(Style::spaceSm * scale, 0.0f, 0.0f, 0.0f);
         groupHeader->addChild(std::make_unique<Separator>());
         groupHeader->addChild(
-            makeLabel(title, Style::fontSizeBody * scale, colorSpecFromRole(ColorRole::Secondary), true));
+            makeLabel(title, Style::fontSizeBody * scale, colorSpecFromRole(ColorRole::Secondary), FontWeight::Bold));
         section.addChild(std::move(groupHeader));
       } else {
-        section.addChild(makeLabel(title, Style::fontSizeBody * scale, colorSpecFromRole(ColorRole::Secondary), true));
+        section.addChild(
+            makeLabel(title, Style::fontSizeBody * scale, colorSpecFromRole(ColorRole::Secondary), FontWeight::Bold));
       }
     };
 
@@ -1002,7 +1006,7 @@ namespace settings {
       }
       badge->setRadius(Style::scaledRadiusSm(scale));
       badge->setFill(fill);
-      badge->addChild(makeLabel(label, Style::fontSizeCaption * scale, color, true));
+      badge->addChild(makeLabel(label, Style::fontSizeCaption * scale, color, FontWeight::Bold));
       return badge;
     };
 
@@ -1054,8 +1058,8 @@ namespace settings {
       titleRow->setAlign(FlexAlign::Center);
       titleRow->setGap(Style::spaceSm * scale);
       titleRow->setFillWidth(true);
-      titleRow->addChild(
-          makeLabel(entry.title, Style::fontSizeBody * scale, colorSpecFromRole(ColorRole::OnSurface), true));
+      titleRow->addChild(makeLabel(entry.title, Style::fontSizeBody * scale, colorSpecFromRole(ColorRole::OnSurface),
+                                   FontWeight::Bold));
       if (entry.advanced) {
         titleRow->addChild(makeAdvancedBadge());
       }
@@ -1524,8 +1528,8 @@ namespace settings {
       titleRow->setAlign(FlexAlign::Center);
       titleRow->setGap(Style::spaceSm * scale);
       titleRow->setFillWidth(true);
-      titleRow->addChild(
-          makeLabel(entry.title, Style::fontSizeBody * scale, colorSpecFromRole(ColorRole::OnSurface), true));
+      titleRow->addChild(makeLabel(entry.title, Style::fontSizeBody * scale, colorSpecFromRole(ColorRole::OnSurface),
+                                   FontWeight::Bold));
       auto titleSpacer = std::make_unique<Flex>();
       titleSpacer->setFlexGrow(1.0f);
       titleRow->addChild(std::move(titleSpacer));
@@ -1587,8 +1591,8 @@ namespace settings {
           setOverride(path, ordered);
         });
         item->addChild(std::move(checkbox));
-        item->addChild(
-            makeLabel(option.label, Style::fontSizeBody * scale, colorSpecFromRole(ColorRole::OnSurface), false));
+        item->addChild(makeLabel(option.label, Style::fontSizeBody * scale, colorSpecFromRole(ColorRole::OnSurface),
+                                 FontWeight::Normal));
 
         checkRow->addChild(std::move(item));
       }
@@ -1611,8 +1615,8 @@ namespace settings {
       titleRow->setAlign(FlexAlign::Center);
       titleRow->setGap(Style::spaceSm * scale);
       titleRow->setFillWidth(true);
-      titleRow->addChild(
-          makeLabel(entry.title, Style::fontSizeBody * scale, colorSpecFromRole(ColorRole::OnSurface), true));
+      titleRow->addChild(makeLabel(entry.title, Style::fontSizeBody * scale, colorSpecFromRole(ColorRole::OnSurface),
+                                   FontWeight::Bold));
       auto titleSpacer = std::make_unique<Flex>();
       titleSpacer->setFlexGrow(1.0f);
       titleRow->addChild(std::move(titleSpacer));
@@ -1690,8 +1694,8 @@ namespace settings {
       titleRow->setFillWidth(true);
       // Reserve the Reset button's height so columns line up even when only some are overridden.
       titleRow->setMinHeight(Style::controlHeightSm * scale);
-      auto titleLabel =
-          makeLabel(entry.title, Style::fontSizeBody * scale, colorSpecFromRole(ColorRole::OnSurface), true);
+      auto titleLabel = makeLabel(entry.title, Style::fontSizeBody * scale, colorSpecFromRole(ColorRole::OnSurface),
+                                  FontWeight::Bold);
       titleLabel->setMaxLines(2);
       titleRow->addChild(std::move(titleLabel));
       auto titleSpacer = std::make_unique<Flex>();
@@ -1809,8 +1813,8 @@ namespace settings {
       titleRow->setAlign(FlexAlign::Center);
       titleRow->setGap(Style::spaceSm * scale);
       titleRow->setFillWidth(true);
-      titleRow->addChild(
-          makeLabel(entry.title, Style::fontSizeBody * scale, colorSpecFromRole(ColorRole::OnSurface), true));
+      titleRow->addChild(makeLabel(entry.title, Style::fontSizeBody * scale, colorSpecFromRole(ColorRole::OnSurface),
+                                   FontWeight::Bold));
       auto titleSpacer = std::make_unique<Flex>();
       titleSpacer->setFlexGrow(1.0f);
       titleRow->addChild(std::move(titleSpacer));
@@ -1886,8 +1890,8 @@ namespace settings {
       titleRow->setAlign(FlexAlign::Center);
       titleRow->setGap(Style::spaceSm * scale);
       titleRow->setFillWidth(true);
-      titleRow->addChild(
-          makeLabel(entry.title, Style::fontSizeBody * scale, colorSpecFromRole(ColorRole::OnSurface), true));
+      titleRow->addChild(makeLabel(entry.title, Style::fontSizeBody * scale, colorSpecFromRole(ColorRole::OnSurface),
+                                   FontWeight::Bold));
       auto titleSpacer = std::make_unique<Flex>();
       titleSpacer->setFlexGrow(1.0f);
       titleRow->addChild(std::move(titleSpacer));
@@ -2036,8 +2040,8 @@ namespace settings {
       titleRow->setAlign(FlexAlign::Center);
       titleRow->setGap(Style::spaceSm * scale);
       titleRow->setFillWidth(true);
-      titleRow->addChild(
-          makeLabel(entry.title, Style::fontSizeBody * scale, colorSpecFromRole(ColorRole::OnSurface), true));
+      titleRow->addChild(makeLabel(entry.title, Style::fontSizeBody * scale, colorSpecFromRole(ColorRole::OnSurface),
+                                   FontWeight::Bold));
       auto titleSpacer = std::make_unique<Flex>();
       titleSpacer->setFlexGrow(1.0f);
       titleRow->addChild(std::move(titleSpacer));
@@ -2416,9 +2420,9 @@ namespace settings {
       emptyState->setBorder(colorSpecFromRole(ColorRole::Outline, 0.28f), Style::borderWidth);
       emptyState->setRadius(Style::scaledRadiusMd(scale));
       emptyState->addChild(makeLabel(i18n::tr("settings.window.no-results"), Style::fontSizeBody * scale,
-                                     colorSpecFromRole(ColorRole::OnSurface), true));
+                                     colorSpecFromRole(ColorRole::OnSurface), FontWeight::Bold));
       emptyState->addChild(makeLabel(i18n::tr("settings.window.no-results-hint"), Style::fontSizeCaption * scale,
-                                     colorSpecFromRole(ColorRole::OnSurfaceVariant), false));
+                                     colorSpecFromRole(ColorRole::OnSurfaceVariant), FontWeight::Normal));
 
       auto emptyRow = std::make_unique<Flex>();
       emptyRow->setDirection(FlexDirection::Horizontal);

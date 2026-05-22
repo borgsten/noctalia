@@ -42,12 +42,13 @@ namespace settings {
       return std::string(lane);
     }
 
-    std::unique_ptr<Label> makeLabel(std::string_view text, float fontSize, const ColorSpec& color, bool bold = false) {
+    std::unique_ptr<Label> makeLabel(std::string_view text, float fontSize, const ColorSpec& color,
+                                     FontWeight fontWeight = FontWeight::Normal) {
       auto label = std::make_unique<Label>();
       label->setText(text);
       label->setFontSize(fontSize);
       label->setColor(color);
-      label->setBold(bold);
+      label->setFontWeight(fontWeight);
       return label;
     }
 
@@ -367,7 +368,8 @@ namespace settings {
     const std::string title = m_createFormVisible
                                   ? instanceFormTitle()
                                   : i18n::tr("settings.entities.widget.inspector.add-title", "lane", lane);
-    auto titleLabel = makeLabel(title, Style::fontSizeBody * m_scale, colorSpecFromRole(ColorRole::OnSurface), true);
+    auto titleLabel =
+        makeLabel(title, Style::fontSizeBody * m_scale, colorSpecFromRole(ColorRole::OnSurface), FontWeight::Bold);
     if (m_createFormVisible) {
       titleLabel->setMaxLines(2);
     }
@@ -380,7 +382,7 @@ namespace settings {
     if (!m_createFormVisible) {
       header->addChild(makeLabel(i18n::tr("settings.entities.widget.picker.instance-toggle"),
                                  Style::fontSizeCaption * m_scale, colorSpecFromRole(ColorRole::OnSurfaceVariant),
-                                 false));
+                                 FontWeight::Normal));
 
       auto instanceToggle = std::make_unique<Toggle>();
       instanceToggle->setScale(m_scale);
