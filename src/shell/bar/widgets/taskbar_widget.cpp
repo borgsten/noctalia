@@ -146,9 +146,8 @@ TaskbarWidget::TaskbarWidget(
     CompositorPlatform& platform, wl_output* output, bool groupByWorkspace, bool showAllOutputs,
     bool onlyActiveWorkspace, bool showWorkspaceLabel, WorkspaceLabelPlacement workspaceLabelPlacement,
     bool hideEmptyWorkspaces, bool workspaceGroupCapsule, bool showActiveIndicator, float activeOpacity,
-    float inactiveOpacity, ColorSpec focusedColor, ColorSpec occupiedColor, ColorSpec emptyColor,
-    bool showWindowTitle, float windowTitleMaxWidth, std::string barPosition,
-    ShellConfig::ShadowConfig shadowConfig
+    float inactiveOpacity, ColorSpec focusedColor, ColorSpec occupiedColor, ColorSpec emptyColor, bool showWindowTitle,
+    float windowTitleMaxWidth, std::string barPosition, ShellConfig::ShadowConfig shadowConfig
 )
     : m_platform(platform), m_output(output), m_groupByWorkspace(groupByWorkspace), m_showAllOutputs(showAllOutputs),
       m_onlyActiveWorkspace(onlyActiveWorkspace), m_showWorkspaceLabel(showWorkspaceLabel),

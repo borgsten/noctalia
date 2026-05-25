@@ -32,8 +32,7 @@ public:
       bool onlyActiveWorkspace, bool showWorkspaceLabel, WorkspaceLabelPlacement workspaceLabelPlacement,
       bool hideEmptyWorkspaces, bool workspaceGroupCapsule, bool showActiveIndicator, float activeOpacity,
       float inactiveOpacity, ColorSpec focusedColor, ColorSpec occupiedColor, ColorSpec emptyColor,
-      bool showWindowTitle, float windowTitleMaxWidth, std::string barPosition,
-      ShellConfig::ShadowConfig shadowConfig
+      bool showWindowTitle, float windowTitleMaxWidth, std::string barPosition, ShellConfig::ShadowConfig shadowConfig
   );
   ~TaskbarWidget() override;
 
