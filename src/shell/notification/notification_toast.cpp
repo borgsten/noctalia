@@ -1676,6 +1676,14 @@ void NotificationToast::collapseStack() {
       const float surfH = static_cast<float>(inst->surface->height());
       const float newSurfY = entryYForSurface(m_entries[p.index], surfH);
 
+      // The completion callbacks must NOT capture `cs` by reference: a sibling
+      // card's finishRemoval() can erase an earlier slot in inst->cards while this
+      // animation is still live, shifting/reallocating the vector and leaving a
+      // dangling reference. Re-look-up the slot by notification id instead (the
+      // owner-node cancel only fires if *this* card's node is destroyed).
+      Instance* instPtr = inst.get();
+      const uint32_t entryId = m_entries[p.index].notificationId;
+
       if (cs.entryAnimId != 0) {
         const float currentReveal = cardReveal(cs, m_entries[p.index].height);
         inst->animations.cancel(cs.entryAnimId);
@@ -1689,7 +1697,12 @@ void NotificationToast::collapseStack() {
             [this, viewport, content, foreground, newSurfY, cardHeight, scale](float v) {
               applyCardRevealNodes(viewport, content, foreground, v, newSurfY, revealDirection(), cardHeight, scale);
             },
-            [&cs]() { cs.entryAnimId = 0; }, viewport
+            [this, instPtr, entryId]() {
+              if (auto* state = findCardState(*instPtr, entryId); state != nullptr) {
+                state->entryAnimId = 0;
+              }
+            },
+            viewport
         );
         continue;
       }
@@ -1700,7 +1713,13 @@ void NotificationToast::collapseStack() {
 
       cs.slideAnimId = inst->animations.animate(
           oldSurfY, newSurfY, Style::animNormal, Easing::EaseInOutQuad,
-          [cardNode, px](float v) { cardNode->setPosition(px, v); }, [&cs]() { cs.slideAnimId = 0; }, cardNode
+          [cardNode, px](float v) { cardNode->setPosition(px, v); },
+          [this, instPtr, entryId]() {
+            if (auto* state = findCardState(*instPtr, entryId); state != nullptr) {
+              state->slideAnimId = 0;
+            }
+          },
+          cardNode
       );
     }
   }

@@ -322,8 +322,13 @@ void NotificationService::emitClose(uint32_t id, CloseReason reason) {
     return;
   }
   try {
+    // Only queue the outgoing signal here. Do NOT pump the bus with
+    // processPendingEvent(): emitClose runs inside NotificationManager::close()
+    // (itself invoked from the session-bus dispatch loop), and synchronously
+    // dispatching the next queued incoming Notify/CloseNotification re-enters the
+    // manager mid-mutation — invalidating live references/indices and crashing
+    // under a notification burst. The poll loop flushes the queued signal.
     m_object->emitSignal("NotificationClosed").onInterface(kInterface).withArguments(id, static_cast<uint32_t>(reason));
-    m_bus.connection().processPendingEvent();
   } catch (const sdbus::Error& e) {
     kLog.debug("notification #{}: NotificationClosed emit failed: {}", id, e.what());
   }
@@ -359,8 +364,9 @@ void NotificationService::emitActionInvoked(uint32_t id, const std::string& acti
     return;
   }
   try {
+    // See emitClose(): never re-enter the bus dispatch from inside a manager
+    // callback. Queue the signal; the poll loop flushes it.
     m_object->emitSignal("ActionInvoked").onInterface(kInterface).withArguments(id, actionKey);
-    m_bus.connection().processPendingEvent();
   } catch (const sdbus::Error& e) {
     kLog.debug("notification #{}: ActionInvoked emit failed key='{}': {}", id, actionKey, e.what());
   }
