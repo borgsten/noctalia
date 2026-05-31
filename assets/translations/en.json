@@ -2181,7 +2181,7 @@
         },
         "transition-on-startup": {
           "label": "Animate on Startup",
-          "description": "Play a transition when the shell first shows a wallpaper, like v4"
+          "description": "Play a transition when the shell first shows a wallpaper"
         },
         "automation": {
           "label": "Automatic Rotation",
