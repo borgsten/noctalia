@@ -72,7 +72,7 @@ namespace {
     std::uint64_t ddcWriteEpoch = 0;
     int failureCount = 0;
     bool quarantined = false;
-    std::chrono::steady_clock::time_point cooldownUntil{};
+    std::chrono::steady_clock::time_point cooldownUntil;
   };
 
   struct DdcCandidate {

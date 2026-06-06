@@ -184,7 +184,7 @@ namespace {
   }
 
   struct ProcessCommandLineCache {
-    std::chrono::steady_clock::time_point capturedAt{};
+    std::chrono::steady_clock::time_point capturedAt;
     std::vector<std::string> commandLines;
   };
 
