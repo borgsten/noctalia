@@ -9,8 +9,8 @@
 #include "notification/notifications.h"
 #include "scripting/script_api_context.h"
 #include "scripting/scripted_widget_bindings.h"
-#include "scripting/scripted_widget_manifest.h"
 #include "system/terminal_launch.h"
+#include "util/file_utils.h"
 
 #include <algorithm>
 #include <atomic>
@@ -342,7 +342,7 @@ namespace {
   int luau_expandPath(lua_State* L) {
     size_t len = 0;
     const char* path = luaL_checklstring(L, 1, &len);
-    const std::string expanded = scripting::expandUserPath(std::string_view(path, len));
+    const std::string expanded = FileUtils::expandUserPath(std::string(path, len)).string();
     lua_pushlstring(L, expanded.data(), expanded.size());
     return 1;
   }

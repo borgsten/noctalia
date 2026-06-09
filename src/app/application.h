@@ -49,6 +49,7 @@
 #include "render/core/thumbnail_service.h"
 #include "render/gl_shared_context.h"
 #include "render/render_context.h"
+#include "scripting/plugin_ipc.h"
 #include "scripting/script_api_context.h"
 #include "shell/backdrop/backdrop.h"
 #include "shell/bar/bar.h"

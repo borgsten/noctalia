@@ -1790,6 +1790,12 @@ void Application::initIpc() {
       "brightness-osd <value>", "Show brightness OSD without changing brightness"
   );
   m_configService.registerIpc(m_ipcService);
+  scripting::PluginIpcRouter::instance().setPlatform(&m_compositorPlatform);
+  m_ipcService.registerHandler(
+      "plugin",
+      [](const std::string& args) -> std::string { return scripting::PluginIpcRouter::instance().dispatch(args); },
+      "plugin <author/plugin:entry> <target[:bar-name]> <event> [payload]", "Dispatch an event to a plugin entry"
+  );
   m_bar.registerIpc(m_ipcService);
   m_desktopWidgetsController.registerIpc(m_ipcService);
   m_lockscreenWidgetsController.registerIpc(m_ipcService);

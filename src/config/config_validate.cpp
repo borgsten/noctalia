@@ -269,9 +269,9 @@ namespace noctalia::config {
           continue;
         }
         const auto fields = settings::widgetSettingSchema(type, &wc);
-        // Scripted widgets resolve settings from a Lua manifest that may be absent
-        // here, so don't flag unknown keys for them.
-        validateSettingsMap(*tbl, fields, base, /*flagUnknown=*/type != "scripted", diag, /*ignoreKeys=*/{"type"});
+        // Plugin widgets resolve their settings from a static plugin.toml manifest, so
+        // unknown keys are flagged like any other widget.
+        validateSettingsMap(*tbl, fields, base, /*flagUnknown=*/true, diag, /*ignoreKeys=*/{"type"});
         resolvedConfig.widgets[nameStr] = std::move(wc);
       }
     }

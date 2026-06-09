@@ -59,6 +59,22 @@ namespace FileUtils {
     return {};
   }
 
+  [[nodiscard]] inline std::string dataDir() {
+    const char* noctalia = std::getenv("NOCTALIA_DATA_HOME");
+    if (noctalia != nullptr && noctalia[0] != '\0') {
+      return std::string(noctalia) + "/noctalia";
+    }
+    const char* xdg = std::getenv("XDG_DATA_HOME");
+    if (xdg != nullptr && xdg[0] != '\0') {
+      return std::string(xdg) + "/noctalia";
+    }
+    const char* home = std::getenv("HOME");
+    if (home != nullptr && home[0] != '\0') {
+      return std::string(home) + "/.local/share/noctalia";
+    }
+    return {};
+  }
+
   [[nodiscard]] inline std::vector<std::uint8_t> readBinaryFile(const std::string& path) {
     std::ifstream file(path, std::ios::binary | std::ios::ate);
     if (!file) {

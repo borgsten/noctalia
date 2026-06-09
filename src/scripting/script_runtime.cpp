@@ -469,6 +469,7 @@ namespace scripting {
       host = std::make_unique<LuauHost>(scriptApi);
       bindingContext.settings = &settings;
       bindingContext.host = host.get();
+      bindingContext.ownerId = runtimeName;
       host->setScriptContext(&bindingContext);
       registerScriptedWidgetBindings(host->state(), &bindingContext);
 
