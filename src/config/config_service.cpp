@@ -174,6 +174,12 @@ namespace {
     if (auto rotation = finiteDouble(widgetTable["rotation"])) {
       widget.rotationRad = static_cast<float>(*rotation);
     }
+    if (auto flipX = widgetTable["flip_x"].value<bool>()) {
+      widget.flipX = *flipX;
+    }
+    if (auto flipY = widgetTable["flip_y"].value<bool>()) {
+      widget.flipY = *flipY;
+    }
     if (auto enabled = widgetTable["enabled"].value<bool>()) {
       widget.enabled = *enabled;
     }

@@ -18,6 +18,11 @@ namespace desktop_widgets {
     return std::max(0.01f, baseUiScale) * legacy;
   }
 
+  inline void widgetNodeScale(const DesktopWidgetState& state, float& outScaleX, float& outScaleY) {
+    outScaleX = state.flipX ? -1.0f : 1.0f;
+    outScaleY = state.flipY ? -1.0f : 1.0f;
+  }
+
   inline std::string outputKey(const WaylandOutput& output) {
     if (!output.connectorName.empty()) {
       return output.connectorName;

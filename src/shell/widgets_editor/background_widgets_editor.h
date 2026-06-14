@@ -168,6 +168,8 @@ private:
   void toggleSelectedWidgetEnabled();
   void sendSelectedWidgetToBack();
   void bringSelectedWidgetToFront();
+  void flipSelectedWidgetHorizontal();
+  void flipSelectedWidgetVertical();
   void startToolbarDrag(const std::string& outputName);
   void startInspectorDrag(const std::string& outputName);
   void clampToolbarPosition(OverlaySurface& surface, float toolbarWidth, float toolbarHeight);

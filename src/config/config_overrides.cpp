@@ -120,6 +120,8 @@ namespace {
         && a.boxWidth == b.boxWidth
         && a.boxHeight == b.boxHeight
         && a.rotationRad == b.rotationRad
+        && a.flipX == b.flipX
+        && a.flipY == b.flipY
         && a.enabled == b.enabled
         && widgetSettingsEqual(a.settings, b.settings);
   }
@@ -373,6 +375,12 @@ namespace {
     widgetTable.insert_or_assign("box_width", static_cast<double>(widget.boxWidth));
     widgetTable.insert_or_assign("box_height", static_cast<double>(widget.boxHeight));
     widgetTable.insert_or_assign("rotation", static_cast<double>(widget.rotationRad));
+    if (widget.flipX) {
+      widgetTable.insert_or_assign("flip_x", true);
+    }
+    if (widget.flipY) {
+      widgetTable.insert_or_assign("flip_y", true);
+    }
     if (!widget.enabled) {
       widgetTable.insert_or_assign("enabled", false);
     }

@@ -802,7 +802,12 @@ void BackgroundWidgetsEditor::rebuildScene(OverlaySurface& surface) {
         widgetState.cx - view.intrinsicWidth * 0.5f, widgetState.cy - view.intrinsicHeight * 0.5f
     );
     view.transformNode->setRotation(widgetState.rotationRad);
-    view.transformNode->setScale(1.0f);
+    {
+      float flipScaleX = 1.0f;
+      float flipScaleY = 1.0f;
+      desktop_widgets::widgetNodeScale(widgetState, flipScaleX, flipScaleY);
+      view.transformNode->setScale(flipScaleX, flipScaleY);
+    }
     view.transformNode->setOpacity(widgetState.enabled ? 1.0f : kDisabledWidgetOpacity);
     view.transformNode->setZIndex(lockscreen_login_box::isLoginBoxWidget(widgetState) ? 3 : 4);
     if (isWidgetSelected(widgetState.id) && widgetState.id != m_selectedWidgetId) {
@@ -1025,6 +1030,9 @@ void BackgroundWidgetsEditor::rebuildScene(OverlaySurface& surface) {
   const bool canBringSelectedToFront =
       hasSelectedWidget && !selectedIsLoginBox && std::next(selectedWidgetIt) != m_snapshot.widgets.end();
 
+  const bool selectedFlipX = hasSelectedWidget && selectedWidgetIt->flipX;
+  const bool selectedFlipY = hasSelectedWidget && selectedWidgetIt->flipY;
+
   const auto typeOptions = desktop_settings::desktopWidgetTypeOptions();
   std::vector<std::string> typeLabels;
   typeLabels.reserve(typeOptions.size());
@@ -1123,6 +1131,22 @@ void BackgroundWidgetsEditor::rebuildScene(OverlaySurface& surface) {
                       .onClick = [this]() { deferEditorMutation([this]() { bringSelectedWidgetToFront(); }); },
                   }),
                   ui::button({
+                      .glyph = "flip-horizontal",
+                      .enabled = hasSelectedWidget && !selectedIsLoginBox,
+                      .selected = selectedFlipX,
+                      .variant = ButtonVariant::Outline,
+                      .tooltip = i18n::tr("desktop-widgets.editor.actions.flip-horizontal"),
+                      .onClick = [this]() { deferEditorMutation([this]() { flipSelectedWidgetHorizontal(); }); },
+                  }),
+                  ui::button({
+                      .glyph = "flip-vertical",
+                      .enabled = hasSelectedWidget && !selectedIsLoginBox,
+                      .selected = selectedFlipY,
+                      .variant = ButtonVariant::Outline,
+                      .tooltip = i18n::tr("desktop-widgets.editor.actions.flip-vertical"),
+                      .onClick = [this]() { deferEditorMutation([this]() { flipSelectedWidgetVertical(); }); },
+                  }),
+                  ui::button({
                       .glyph = "settings",
                       .enabled = hasSelectedWidget && !selectedIsLoginBox,
                       .selected = m_inspectorOpen,
@@ -1136,22 +1160,26 @@ void BackgroundWidgetsEditor::rebuildScene(OverlaySurface& surface) {
                             });
                           },
                   }),
-                  ui::button({
-                      .glyph = selectedWidgetEnabled ? "eye" : "eye-off",
-                      .enabled = hasSelectedWidget && !selectedIsLoginBox,
-                      .selected = selectedWidgetEnabled,
-                      .variant = ButtonVariant::Outline,
-                      .tooltip = selectedWidgetEnabled ? i18n::tr("desktop-widgets.editor.actions.hide")
-                                                       : i18n::tr("desktop-widgets.editor.actions.show"),
-                      .onClick = [this]() { deferEditorMutation([this]() { toggleSelectedWidgetEnabled(); }); },
-                  }),
-                  ui::button({
-                      .glyph = "trash",
-                      .enabled = hasSelectedWidget && !selectedIsLoginBox,
-                      .variant = ButtonVariant::Destructive,
-                      .tooltip = i18n::tr("desktop-widgets.editor.actions.trash"),
-                      .onClick = [this]() { deferEditorMutation([this]() { removeSelectedWidget(); }); },
-                  }),
+                  ui::button(
+                      {
+                          .glyph = selectedWidgetEnabled ? "eye" : "eye-off",
+                          .enabled = hasSelectedWidget && !selectedIsLoginBox,
+                          .selected = selectedWidgetEnabled,
+                          .variant = ButtonVariant::Outline,
+                          .tooltip = selectedWidgetEnabled ? i18n::tr("desktop-widgets.editor.actions.hide")
+                                                           : i18n::tr("desktop-widgets.editor.actions.show"),
+                          .onClick = [this]() { deferEditorMutation([this]() { toggleSelectedWidgetEnabled(); }); },
+                      }
+                  ),
+                  ui::button(
+                      {
+                          .glyph = "trash",
+                          .enabled = hasSelectedWidget && !selectedIsLoginBox,
+                          .variant = ButtonVariant::Destructive,
+                          .tooltip = i18n::tr("desktop-widgets.editor.actions.trash"),
+                          .onClick = [this]() { deferEditorMutation([this]() { removeSelectedWidget(); }); },
+                      }
+                  ),
                   ui::separator(
                       {
                           .orientation = SeparatorOrientation::VerticalRule,
@@ -1360,7 +1388,12 @@ void BackgroundWidgetsEditor::applyViewState(
   view.transformNode->setFrameSize(view.intrinsicWidth, view.intrinsicHeight);
   view.transformNode->setPosition(state.cx - view.intrinsicWidth * 0.5f, state.cy - view.intrinsicHeight * 0.5f);
   view.transformNode->setRotation(state.rotationRad);
-  view.transformNode->setScale(1.0f);
+  {
+    float flipScaleX = 1.0f;
+    float flipScaleY = 1.0f;
+    desktop_widgets::widgetNodeScale(state, flipScaleX, flipScaleY);
+    view.transformNode->setScale(flipScaleX, flipScaleY);
+  }
   view.transformNode->setOpacity(state.enabled ? 1.0f : kDisabledWidgetOpacity);
 }
 
@@ -1519,6 +1552,36 @@ void BackgroundWidgetsEditor::bringSelectedWidgetToFront() {
 
   std::rotate(it, std::next(it), m_snapshot.widgets.end());
   requestLayout();
+}
+
+void BackgroundWidgetsEditor::flipSelectedWidgetHorizontal() {
+  if (m_selectedWidgetIds.empty()) {
+    return;
+  }
+  for (const std::string& id : m_selectedWidgetIds) {
+    DesktopWidgetState* state = findWidgetState(id);
+    if (state == nullptr || lockscreen_login_box::isLoginBoxWidget(*state)) {
+      continue;
+    }
+    state->flipX = !state->flipX;
+  }
+  updateViewTransforms();
+  requestRedraw();
+}
+
+void BackgroundWidgetsEditor::flipSelectedWidgetVertical() {
+  if (m_selectedWidgetIds.empty()) {
+    return;
+  }
+  for (const std::string& id : m_selectedWidgetIds) {
+    DesktopWidgetState* state = findWidgetState(id);
+    if (state == nullptr || lockscreen_login_box::isLoginBoxWidget(*state)) {
+      continue;
+    }
+    state->flipY = !state->flipY;
+  }
+  updateViewTransforms();
+  requestRedraw();
 }
 
 void BackgroundWidgetsEditor::startToolbarDrag(const std::string& outputName) {

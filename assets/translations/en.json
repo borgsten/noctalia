@@ -329,6 +329,8 @@
       "actions": {
         "add": "Add",
         "done": "Done",
+        "flip-horizontal": "Flip Horizontal",
+        "flip-vertical": "Flip Vertical",
         "hide": "Hide",
         "settings": "Settings",
         "show": "Show",

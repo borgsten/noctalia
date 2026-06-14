@@ -334,9 +334,10 @@ namespace noctalia::config {
       if (widgets == nullptr) {
         return;
       }
-      static const std::unordered_set<std::string> kWidgetKeys = {"id",      "type",      "output",     "cx",
-                                                                  "cy",      "box_width", "box_height", "rotation",
-                                                                  "enabled", "settings",  "scale"};
+      static const std::unordered_set<std::string> kWidgetKeys = {"id",     "type",      "output",     "cx",
+                                                                  "cy",     "box_width", "box_height", "rotation",
+                                                                  "flip_x", "flip_y",    "enabled",    "settings",
+                                                                  "scale"};
       for (const auto& [id, node] : *widgets) {
         const auto* tbl = node.as_table();
         if (tbl == nullptr) {
@@ -399,9 +400,10 @@ namespace noctalia::config {
       if (widgets == nullptr) {
         return;
       }
-      static const std::unordered_set<std::string> kWidgetKeys = {"id",      "type",      "output",     "cx",
-                                                                  "cy",      "box_width", "box_height", "rotation",
-                                                                  "enabled", "settings",  "scale"};
+      static const std::unordered_set<std::string> kWidgetKeys = {"id",     "type",      "output",     "cx",
+                                                                  "cy",     "box_width", "box_height", "rotation",
+                                                                  "flip_x", "flip_y",    "enabled",    "settings",
+                                                                  "scale"};
       for (const auto& [id, node] : *widgets) {
         const auto* tbl = node.as_table();
         if (tbl == nullptr) {

@@ -342,7 +342,10 @@ void DesktopWidgetsHost::prepareFrame(DesktopWidgetInstance& instance, bool need
         geometry.contentOffsetY - instance.intrinsicHeight * 0.5f
     );
     instance.transformNode->setRotation(instance.state.rotationRad);
-    instance.transformNode->setScale(1.0f);
+    float flipScaleX = 1.0f;
+    float flipScaleY = 1.0f;
+    desktop_widgets::widgetNodeScale(instance.state, flipScaleX, flipScaleY);
+    instance.transformNode->setScale(flipScaleX, flipScaleY);
   }
 }
 

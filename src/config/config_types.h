@@ -513,6 +513,8 @@ struct DesktopWidgetState {
   // their size until the editor bakes it into an explicit box. Never written back out.
   float legacyScale = 1.0f;
   float rotationRad = 0.0f;
+  bool flipX = false;
+  bool flipY = false;
   bool enabled = true;
   std::unordered_map<std::string, WidgetSettingValue> settings;
 
