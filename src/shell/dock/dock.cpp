@@ -392,10 +392,14 @@ bool Dock::onPointerEvent(const PointerEvent& event) {
       break;
     }
     m_hoveredInstance = it->second;
-    m_hoveredInstance->pointerInside = true;
-    m_hoveredInstance->inputDispatcher.pointerEnter(
-        static_cast<float>(event.sx), static_cast<float>(event.sy), event.serial
-    );
+    shell::dock::DockInstance* const entered = m_hoveredInstance;
+    entered->pointerInside = true;
+    entered->inputDispatcher.pointerEnter(static_cast<float>(event.sx), static_cast<float>(event.sy), event.serial);
+    // pointerEnter can re-enter the Wayland event loop (tooltip popup creation),
+    // which may clear or change m_hoveredInstance before we dereference it.
+    if (m_hoveredInstance != entered) {
+      break;
+    }
     updateHoverZoomPointer(*m_hoveredInstance, static_cast<float>(event.sx), static_cast<float>(event.sy));
     // Auto-hide: show the dock when the pointer enters.
     if (m_config->config().dock.autoHide && m_hoveredInstance->sceneRoot != nullptr) {
@@ -441,7 +445,12 @@ bool Dock::onPointerEvent(const PointerEvent& event) {
   case PointerEvent::Type::Motion: {
     if (m_hoveredInstance == nullptr)
       break;
-    m_hoveredInstance->inputDispatcher.pointerMotion(static_cast<float>(event.sx), static_cast<float>(event.sy), 0);
+    shell::dock::DockInstance* const hovered = m_hoveredInstance;
+    hovered->inputDispatcher.pointerMotion(static_cast<float>(event.sx), static_cast<float>(event.sy), 0);
+    // pointerMotion can re-enter the Wayland event loop (tooltip popup creation),
+    // which may clear or change m_hoveredInstance before we dereference it.
+    if (m_hoveredInstance != hovered)
+      break;
     updateHoverZoomPointer(*m_hoveredInstance, static_cast<float>(event.sx), static_cast<float>(event.sy));
     break;
   }
@@ -465,7 +474,11 @@ bool Dock::onPointerEvent(const PointerEvent& event) {
             static_cast<float>(event.sx), static_cast<float>(event.sy), event.serial
         );
       }
-      updateHoverZoomPointer(*m_hoveredInstance, static_cast<float>(event.sx), static_cast<float>(event.sy));
+      // pointerEnter/pointerMotion can re-enter the Wayland event loop (tooltip
+      // popup creation), which may clear m_hoveredInstance before we use it.
+      if (m_hoveredInstance != nullptr) {
+        updateHoverZoomPointer(*m_hoveredInstance, static_cast<float>(event.sx), static_cast<float>(event.sy));
+      }
     }
 
     if (m_hoveredInstance == nullptr)

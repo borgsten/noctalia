@@ -38,6 +38,7 @@ private:
 
   void showPopup();
   void handleHoverChange(InputArea* area);
+  void scheduleReshow();
   void dismissPopup();
   void destroyPopup();
   void refreshFromArea(InputArea* area);
@@ -51,6 +52,7 @@ private:
   RenderContext* m_renderContext = nullptr;
 
   State m_state = State::Idle;
+  bool m_reshowQueued = false;
   Timer m_showTimer;
   Timer m_refreshTimer;
 

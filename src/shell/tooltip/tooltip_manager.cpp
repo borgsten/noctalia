@@ -222,14 +222,32 @@ void TooltipManager::handleHoverChange(InputArea* area) {
       refreshFromArea(area);
       break;
     }
-    destroyPopup();
-    showPopup();
+    scheduleReshow();
     break;
   case State::FadingOut:
-    destroyPopup();
-    showPopup();
+    scheduleReshow();
     break;
   }
+}
+
+void TooltipManager::scheduleReshow() {
+  if (m_reshowQueued) {
+    return;
+  }
+  m_reshowQueued = true;
+  // Rebuilding the popup runs a synchronous wl_display_roundtrip inside PopupSurface
+  // init. Hover changes are delivered during pointer-event dispatch, so rebuilding
+  // now would re-enter the Wayland event loop while a pointer event is still on the
+  // stack. Defer to the next main-loop tick. m_pendingArea is cleared when the hover
+  // target is lost or destroyed, so a non-null value here is a live area.
+  DeferredCall::callLater([this] {
+    m_reshowQueued = false;
+    if (m_pendingArea == nullptr) {
+      return;
+    }
+    destroyPopup();
+    showPopup();
+  });
 }
 
 void TooltipManager::syncAnchor(InputArea* area) {
@@ -313,6 +331,9 @@ void TooltipManager::showPopup() {
 
 void TooltipManager::dismissPopup() {
   m_refreshTimer.stop();
+  // The hover target is gone (pointer left, area lost its tooltip, or the area was
+  // destroyed). Clear it so a deferred reshow does not dereference a stale area.
+  m_pendingArea = nullptr;
   switch (m_state) {
   case State::Pending:
     m_showTimer.stop();
