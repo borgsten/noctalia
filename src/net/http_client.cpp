@@ -532,6 +532,11 @@ void HttpClient::finishRequestTransfer(CURL* easy, CURLcode result) {
   response.transportOk = result == CURLE_OK;
   response.status = responseCode;
   response.body = std::move(transfer.response);
+  if (char* effectiveUrl = nullptr; curl_easy_getinfo(easy, CURLINFO_EFFECTIVE_URL, &effectiveUrl) == CURLE_OK
+      && effectiveUrl != nullptr
+      && effectiveUrl[0] != '\0') {
+    response.effectiveUrl = effectiveUrl;
+  }
   if (!response.transportOk) {
     const char* detail = transfer.errorBuffer[0] != '\0' ? transfer.errorBuffer.data() : curl_easy_strerror(result);
     kLog.warn(

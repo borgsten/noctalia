@@ -1401,7 +1401,18 @@ void Application::initUi() {
     m_panelManager.openPanel("wallpaper", PanelOpenRequest{.output = output});
   });
   m_settingsWindow.setConnectCalendarAccount([this](std::string accountId, std::string activationToken) {
-    m_calendarService.connectGoogleAccount(accountId, activationToken);
+    const auto& accounts = m_configService.config().calendar.accounts;
+    const auto it = std::find_if(accounts.begin(), accounts.end(), [&](const CalendarConfig::Account& account) {
+      return account.id == accountId;
+    });
+    if (it == accounts.end()) {
+      return;
+    }
+    if (it->type == "google") {
+      m_calendarService.connectGoogleAccount(accountId, activationToken);
+    } else if (it->type == "caldav") {
+      m_calendarService.requestRefresh();
+    }
   });
   auto clipboardPanel = std::make_unique<ClipboardPanel>(
       &m_clipboardService, &m_configService, &m_thumbnailService, &m_asyncTextureCache

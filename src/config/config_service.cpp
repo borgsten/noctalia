@@ -704,7 +704,7 @@ std::string ConfigService::buildEffectiveConfigFromSources(
     config = makeDefaultConfig();
   } else {
     try {
-      parseConfigTable(*merged, config, false);
+      parseConfigTable(*merged, config, false, false);
     } catch (const std::exception& e) {
       if (error != nullptr) {
         *error = e.what();
@@ -1188,7 +1188,9 @@ void ConfigService::loadAll() {
   setConfigParseError(parseError);
 }
 
-void ConfigService::parseConfigTable(const toml::table& tbl, Config& config, bool logSummary) {
+void ConfigService::parseConfigTable(
+    const toml::table& tbl, Config& config, bool logSummary, bool logSchemaDiagnostics
+) {
   // Diagnostics raised by schema-driven sections (e.g. unknown enum values).
   // Flushed to the log below, preserving the legacy warn-and-continue behavior.
   schema::Diagnostics schemaDiag;
@@ -1475,8 +1477,10 @@ void ConfigService::parseConfigTable(const toml::table& tbl, Config& config, boo
     kLog.info("hooks kinds with commands={}", hookKindsUsed);
   }
 
-  for (const auto& entry : schemaDiag.entries) {
-    kLog.warn("{}: {}", entry.path, entry.message);
+  if (logSchemaDiagnostics) {
+    for (const auto& entry : schemaDiag.entries) {
+      kLog.warn("{}: {}", entry.path, entry.message);
+    }
   }
 }
 

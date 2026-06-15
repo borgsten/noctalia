@@ -1219,15 +1219,16 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
             }
           }
 
-          if (!m_config->setOverrides(std::move(overrides))) {
-            markSettingsWriteError(i18n::tr("settings.calendar-accounts.save-error"));
-            return;
-          }
           if (caldav && !draft->password.empty()) {
             if (!m_config->setStateString(kCalendarCredentialOwner, draft->id + "_password", draft->password)) {
               markSettingsWriteError(i18n::tr("settings.calendar-accounts.password-save-error"));
               return;
             }
+          }
+
+          if (!m_config->setOverrides(std::move(overrides))) {
+            markSettingsWriteError(i18n::tr("settings.calendar-accounts.save-error"));
+            return;
           }
 
           std::function<void(std::string, std::string)> connectCalendarAccount;

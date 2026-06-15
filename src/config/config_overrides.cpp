@@ -1086,7 +1086,7 @@ std::optional<Config> ConfigService::configForOverrides(const toml::table& overr
   }
 
   try {
-    parseConfigTable(merged, parsed, false);
+    parseConfigTable(merged, parsed, false, false);
   } catch (const std::exception& e) {
     kLog.warn("effective override comparison parse failed: {}", e.what());
     return std::nullopt;
