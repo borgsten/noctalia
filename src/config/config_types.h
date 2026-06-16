@@ -774,7 +774,7 @@ struct ShellConfig {
     PanelPlacement controlCenterPlacement = PanelPlacement::Attached;
     PanelPlacement wallpaperPlacement = PanelPlacement::Attached;
     PanelPlacement sessionPlacement = PanelPlacement::Attached;
-    std::int32_t floatingOffset = 4; // logical px gap between a floating/detached panel and the bar edge
+    std::int32_t floatingOffset = 8; // logical px gap between a floating/detached panel and the bar edge
     bool openNearClickControlCenter = false;
     bool openNearClickLauncher = false;
     bool openNearClickClipboard = false;
