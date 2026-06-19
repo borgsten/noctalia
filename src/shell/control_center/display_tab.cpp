@@ -87,7 +87,9 @@ std::unique_ptr<Flex> DisplayTab::create() {
 }
 
 void DisplayTab::setActive(bool active) {
-  if (active && m_brightness != nullptr) {
+  const bool becameActive = active && !m_active;
+  m_active = active;
+  if (becameActive && m_brightness != nullptr) {
     m_brightness->requestDdcRefresh();
   }
 }

@@ -59,4 +59,5 @@ private:
   std::chrono::steady_clock::time_point m_ignoreStateUntil{};
   Timer m_debounceTimer;
   bool m_syncingSlider = false;
+  bool m_active = false;
 };
