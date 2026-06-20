@@ -986,6 +986,7 @@
         "clipboard": "Clipboard",
         "community": "Community",
         "control-center": "Control Center",
+        "dead-zone": "Dead Zone",
         "directories": "Directories",
         "effects": "Effects",
         "filtering": "Filtering",
@@ -1390,6 +1391,22 @@
         },
         "contact-shadow": {
           "description": "Dark gradient between an attached panel and the bar to suggest depth at the seam"
+        },
+        "dead-zone-command": {
+          "description": "Shell command to run on left-click in the bar margin outside widget sections",
+          "label": "Left Click"
+        },
+        "dead-zone-right-command": {
+          "description": "Shell command to run on right-click; leave empty to open Control Center",
+          "label": "Right Click"
+        },
+        "dead-zone-scroll-down-command": {
+          "description": "Shell command to run when scrolling down",
+          "label": "Scroll Down"
+        },
+        "dead-zone-scroll-up-command": {
+          "description": "Shell command to run when scrolling up",
+          "label": "Scroll Up"
         },
         "content-padding": {
           "description": "Padding inside the bar content area",

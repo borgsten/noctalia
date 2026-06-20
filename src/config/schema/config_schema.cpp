@@ -1843,6 +1843,26 @@ namespace noctalia::config::schema {
     }
   } // namespace
 
+  const Schema<BarDeadZoneConfig>& barDeadZoneSchema() {
+    static const Schema<BarDeadZoneConfig> s = {
+        field(&BarDeadZoneConfig::command, "command"),
+        field(&BarDeadZoneConfig::rightCommand, "right_command"),
+        field(&BarDeadZoneConfig::scrollUpCommand, "scroll_up_command"),
+        field(&BarDeadZoneConfig::scrollDownCommand, "scroll_down_command"),
+    };
+    return s;
+  }
+
+  const Schema<BarDeadZoneOverride>& barDeadZoneOverrideSchema() {
+    static const Schema<BarDeadZoneOverride> s = {
+        optionalStringField(&BarDeadZoneOverride::command, "command"),
+        optionalStringField(&BarDeadZoneOverride::rightCommand, "right_command"),
+        optionalStringField(&BarDeadZoneOverride::scrollUpCommand, "scroll_up_command"),
+        optionalStringField(&BarDeadZoneOverride::scrollDownCommand, "scroll_down_command"),
+    };
+    return s;
+  }
+
   const Schema<BarConfig>& barFieldsSchema() {
     static const Schema<BarConfig> s = {
         field(&BarConfig::enabled, "enabled"),
@@ -1885,6 +1905,7 @@ namespace noctalia::config::schema {
         optionalDoubleField(&BarConfig::widgetCapsuleRadius, "capsule_radius", kBarCapsuleRadiusRangeD),
         field(&BarConfig::widgetCapsuleOpacity, "capsule_opacity", kBarOpacityRange),
         capsuleBorderField(&BarConfig::widgetCapsuleBorder, &BarConfig::widgetCapsuleBorderSpecified, "capsule_border"),
+        subTable(&BarConfig::deadZone, "dead_zone", barDeadZoneSchema()),
     };
     return s;
   }
@@ -1972,6 +1993,7 @@ namespace noctalia::config::schema {
             },
             [](toml::table&, const BarMonitorOverride&) {}
         ),
+        subTable(&BarMonitorOverride::deadZone, "dead_zone", barDeadZoneOverrideSchema()),
     };
     return s;
   }

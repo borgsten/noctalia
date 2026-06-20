@@ -168,6 +168,14 @@ namespace config_export {
       }
       if (ovr.widgetCapsuleOpacity)
         resolved.widgetCapsuleOpacity = static_cast<float>(*ovr.widgetCapsuleOpacity);
+      if (ovr.deadZone.command)
+        resolved.deadZone.command = *ovr.deadZone.command;
+      if (ovr.deadZone.rightCommand)
+        resolved.deadZone.rightCommand = *ovr.deadZone.rightCommand;
+      if (ovr.deadZone.scrollUpCommand)
+        resolved.deadZone.scrollUpCommand = *ovr.deadZone.scrollUpCommand;
+      if (ovr.deadZone.scrollDownCommand)
+        resolved.deadZone.scrollDownCommand = *ovr.deadZone.scrollDownCommand;
       return resolved;
     }
 

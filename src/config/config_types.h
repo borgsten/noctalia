@@ -43,6 +43,15 @@ inline constexpr std::string_view kCapsuleGroupTokenPrefix = "group:";
 [[nodiscard]] std::string capsuleGroupTokenId(std::string_view laneEntry);
 [[nodiscard]] std::string makeCapsuleGroupToken(std::string_view groupId);
 
+struct BarDeadZoneOverride {
+  std::optional<std::string> command;
+  std::optional<std::string> rightCommand;
+  std::optional<std::string> scrollUpCommand;
+  std::optional<std::string> scrollDownCommand;
+
+  bool operator==(const BarDeadZoneOverride&) const = default;
+};
+
 struct BarMonitorOverride {
   std::string match;
   std::optional<std::string> position;
@@ -83,8 +92,18 @@ struct BarMonitorOverride {
   std::optional<double> widgetCapsulePadding;
   std::optional<double> widgetCapsuleRadius;
   std::optional<double> widgetCapsuleOpacity;
+  BarDeadZoneOverride deadZone;
 
   bool operator==(const BarMonitorOverride&) const = default;
+};
+
+struct BarDeadZoneConfig {
+  std::string command;
+  std::string rightCommand;
+  std::string scrollUpCommand;
+  std::string scrollDownCommand;
+
+  bool operator==(const BarDeadZoneConfig&) const = default;
 };
 
 struct BarConfig {
@@ -145,6 +164,7 @@ struct BarConfig {
   // True when `capsule_border` appears under `[bar.*]` (empty value = no outline for widgets that inherit border).
   bool widgetCapsuleBorderSpecified = false;
   std::optional<ColorSpec> widgetCapsuleBorder;
+  BarDeadZoneConfig deadZone;
   std::vector<BarMonitorOverride> monitorOverrides;
 
   bool operator==(const BarConfig&) const = default;

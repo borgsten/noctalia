@@ -3,6 +3,7 @@
 #include "compositors/compositor_platform.h"
 #include "config/config_service.h"
 #include "core/log.h"
+#include "core/process.h"
 #include "core/scoped_timer.h"
 #include "core/ui_phase.h"
 #include "dbus/power/power_profiles_service.h"
@@ -37,9 +38,11 @@
 #include <ranges>
 #include <unordered_set>
 #include <wayland-client-core.h>
+#include <wayland-client-protocol.h>
 
 namespace {
 
+  constexpr Logger kLog("bar");
   constexpr std::int32_t kAutoHideTriggerPx = 3;
   constexpr float kAutoHideSlideExtraPx = 4.0f;
 
@@ -283,6 +286,117 @@ namespace {
     return {x, y};
   }
 
+  bool isBarDeadZone(const BarInstance& instance, float sceneX, float sceneY) {
+    const bool insideAnySection = pointInsideNode(instance.startSection, sceneX, sceneY)
+        || pointInsideNode(instance.centerSection, sceneX, sceneY)
+        || pointInsideNode(instance.endSection, sceneX, sceneY);
+    if (insideAnySection) {
+      return false;
+    }
+    return widgetAtPoint(instance, sceneX, sceneY) == nullptr;
+  }
+
+  void executeDeadZoneCommand(const std::string& command) {
+    if (command.empty()) {
+      return;
+    }
+    if (!process::runAsync(command)) {
+      kLog.warn("bar dead zone command failed: {}", command);
+    }
+  }
+
+  float pointerScrollDelta(const PointerEvent& event) {
+    if (event.axis != WL_POINTER_AXIS_VERTICAL_SCROLL && event.axis != WL_POINTER_AXIS_HORIZONTAL_SCROLL) {
+      return 0.0f;
+    }
+
+    if (event.axisValue120 != 0) {
+      return static_cast<float>(event.axisValue120) / 120.0f;
+    }
+    if (event.axisDiscrete != 0) {
+      return static_cast<float>(event.axisDiscrete);
+    }
+    if (event.axisValue != 0.0) {
+      return static_cast<float>(event.axisValue);
+    }
+    return 0.0f;
+  }
+
+  void openControlCenterAtBarPointer(
+      BarInstance& instance, float sx, float sy, CompositorPlatform* platform, std::string_view sourceBarName
+  ) {
+    auto& panelManager = PanelManager::instance();
+    if (panelManager.isOpenPanel("control-center")) {
+      panelManager.closePanel();
+      return;
+    }
+
+    float anchorX = sx;
+    float anchorY = sy;
+    if (platform != nullptr && instance.output != nullptr) {
+      if (const auto* out = platform->findOutputByWl(instance.output);
+          out != nullptr && out->logicalWidth > 0 && out->logicalHeight > 0) {
+        const auto [surfaceX, surfaceY] = surfaceOriginForOutputLocal(instance, *out);
+        anchorX += surfaceX;
+        anchorY += surfaceY;
+      }
+    }
+    panelManager.openPanel(
+        "control-center",
+        PanelOpenRequest{
+            .output = instance.output,
+            .anchorX = anchorX,
+            .anchorY = anchorY,
+            .hasAnchorPosition = true,
+            .context = "home",
+            .sourceBarName = std::string(sourceBarName),
+        }
+    );
+  }
+
+  bool handleBarDeadZoneButton(
+      BarInstance& instance, float sx, float sy, std::uint32_t button, CompositorPlatform* platform
+  ) {
+    if (!isBarDeadZone(instance, sx, sy)) {
+      return false;
+    }
+
+    const auto& deadZone = instance.barConfig.deadZone;
+    if (button == BTN_LEFT && !deadZone.command.empty()) {
+      executeDeadZoneCommand(deadZone.command);
+      return true;
+    }
+    if (button == BTN_RIGHT) {
+      if (!deadZone.rightCommand.empty()) {
+        executeDeadZoneCommand(deadZone.rightCommand);
+        return true;
+      }
+      openControlCenterAtBarPointer(instance, sx, sy, platform, instance.barConfig.name);
+      return true;
+    }
+    return false;
+  }
+
+  bool handleBarDeadZoneAxis(BarInstance& instance, float sx, float sy, const PointerEvent& event) {
+    if (!isBarDeadZone(instance, sx, sy)) {
+      return false;
+    }
+
+    const float delta = pointerScrollDelta(event);
+    if (delta == 0.0f) {
+      return false;
+    }
+
+    const auto& deadZone = instance.barConfig.deadZone;
+    const std::string& command = delta < 0.0f ? deadZone.scrollUpCommand : deadZone.scrollDownCommand;
+    if (command.empty()) {
+      return false;
+    }
+
+    executeDeadZoneCommand(command);
+    return true;
+  }
+
   std::uint32_t positionToAnchor(const std::string& position) {
     if (position == "bottom") {
       return LayerShellAnchor::Bottom | LayerShellAnchor::Left | LayerShellAnchor::Right;
@@ -296,8 +410,6 @@ namespace {
     // Default: top
     return LayerShellAnchor::Top | LayerShellAnchor::Left | LayerShellAnchor::Right;
   }
-
-  constexpr Logger kLog("bar");
 
   ColorSpec withOpacity(const ColorSpec& color, float opacity) {
     ColorSpec out = color;
@@ -2426,31 +2538,13 @@ bool Bar::onPointerEvent(const PointerEvent& event) {
     case PointerEvent::Type::Button:
     case PointerEvent::Type::Axis:
       if (event.type == PointerEvent::Type::Button && event.button == BTN_RIGHT && event.state == 1) {
-        auto& panelManager = PanelManager::instance();
-        if (panelManager.isOpenPanel("control-center")) {
-          panelManager.closePanel();
+        const float sx = static_cast<float>(event.sx);
+        const float sy = static_cast<float>(event.sy);
+        const auto& deadZone = targetInstance->barConfig.deadZone;
+        if (!deadZone.rightCommand.empty() && isBarDeadZone(*targetInstance, sx, sy)) {
+          executeDeadZoneCommand(deadZone.rightCommand);
         } else {
-          float anchorX = static_cast<float>(event.sx);
-          float anchorY = static_cast<float>(event.sy);
-          if (m_platform != nullptr && targetInstance->output != nullptr) {
-            if (const auto* out = m_platform->findOutputByWl(targetInstance->output);
-                out != nullptr && out->logicalWidth > 0 && out->logicalHeight > 0) {
-              const auto [surfaceX, surfaceY] = surfaceOriginForOutputLocal(*targetInstance, *out);
-              anchorX += surfaceX;
-              anchorY += surfaceY;
-            }
-          }
-          panelManager.openPanel(
-              "control-center",
-              PanelOpenRequest{
-                  .output = targetInstance->output,
-                  .anchorX = anchorX,
-                  .anchorY = anchorY,
-                  .hasAnchorPosition = true,
-                  .context = "home",
-                  .sourceBarName = targetInstance->barConfig.name
-              }
-          );
+          openControlCenterAtBarPointer(*targetInstance, sx, sy, m_platform, targetInstance->barConfig.name);
         }
         return true;
       }
@@ -2513,44 +2607,12 @@ bool Bar::onPointerEvent(const PointerEvent& event) {
       break;
     m_hoveredInstance->lastPointerSx = static_cast<float>(event.sx);
     m_hoveredInstance->lastPointerSy = static_cast<float>(event.sy);
+    const float sx = static_cast<float>(event.sx);
+    const float sy = static_cast<float>(event.sy);
     bool pressed = (event.state == 1); // WL_POINTER_BUTTON_STATE_PRESSED
-    consumed = m_hoveredInstance->inputDispatcher.pointerButton(
-        static_cast<float>(event.sx), static_cast<float>(event.sy), event.button, pressed
-    );
-    if (pressed && event.button == BTN_RIGHT && !consumed) {
-      const float sx = static_cast<float>(event.sx);
-      const float sy = static_cast<float>(event.sy);
-      const bool insideAnySection = pointInsideNode(m_hoveredInstance->startSection, sx, sy)
-          || pointInsideNode(m_hoveredInstance->centerSection, sx, sy)
-          || pointInsideNode(m_hoveredInstance->endSection, sx, sy);
-      const bool insideAnyWidget = widgetAtPoint(*m_hoveredInstance, sx, sy) != nullptr;
-      if (!insideAnySection && !insideAnyWidget) {
-        auto& panelManager = PanelManager::instance();
-        if (panelManager.isOpenPanel("control-center")) {
-          panelManager.closePanel();
-        } else {
-          float anchorX = sx;
-          float anchorY = sy;
-          if (m_platform != nullptr && m_hoveredInstance->output != nullptr) {
-            if (const auto* out = m_platform->findOutputByWl(m_hoveredInstance->output);
-                out != nullptr && out->logicalWidth > 0 && out->logicalHeight > 0) {
-              const auto [surfaceX, surfaceY] = surfaceOriginForOutputLocal(*m_hoveredInstance, *out);
-              anchorX += surfaceX;
-              anchorY += surfaceY;
-            }
-          }
-          panelManager.openPanel(
-              "control-center",
-              PanelOpenRequest{
-                  .output = m_hoveredInstance->output,
-                  .anchorX = anchorX,
-                  .anchorY = anchorY,
-                  .hasAnchorPosition = true,
-                  .context = "home",
-                  .sourceBarName = m_hoveredInstance->barConfig.name
-              }
-          );
-        }
+    consumed = m_hoveredInstance->inputDispatcher.pointerButton(sx, sy, event.button, pressed);
+    if (pressed && !consumed) {
+      if (handleBarDeadZoneButton(*m_hoveredInstance, sx, sy, event.button, m_platform)) {
         consumed = true;
       }
     }
@@ -2561,10 +2623,14 @@ bool Bar::onPointerEvent(const PointerEvent& event) {
       break;
     m_hoveredInstance->lastPointerSx = static_cast<float>(event.sx);
     m_hoveredInstance->lastPointerSy = static_cast<float>(event.sy);
-    m_hoveredInstance->inputDispatcher.pointerAxis(
-        static_cast<float>(event.sx), static_cast<float>(event.sy), event.axis, event.axisSource, event.axisValue,
-        event.axisDiscrete, event.axisValue120, event.axisLines
+    const float sx = static_cast<float>(event.sx);
+    const float sy = static_cast<float>(event.sy);
+    const bool axisConsumed = m_hoveredInstance->inputDispatcher.pointerAxis(
+        sx, sy, event.axis, event.axisSource, event.axisValue, event.axisDiscrete, event.axisValue120, event.axisLines
     );
+    if (!axisConsumed) {
+      handleBarDeadZoneAxis(*m_hoveredInstance, sx, sy, event);
+    }
     break;
   }
   }

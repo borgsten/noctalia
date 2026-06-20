@@ -2456,6 +2456,39 @@ namespace settings {
           section, "widget-list", tr("settings.schema.bar.end-widgets.label"),
           tr("settings.schema.bar.end-widgets.description"), path("end"), ListSetting{.items = bar.endWidgets}, "right"
       ));
+      const auto deadZonePath = [&](std::string_view key) {
+        return std::vector<std::string>{"bar", bar.name, "dead_zone", std::string(key)};
+      };
+      entries.push_back(makeEntry(
+          section, "dead-zone", tr("settings.schema.bar.dead-zone-command.label"),
+          tr("settings.schema.bar.dead-zone-command.description"), deadZonePath("command"),
+          TextSetting{.value = bar.deadZone.command, .placeholder = "", .width = 320.0f, .browseFileExtensions = {}},
+          "bar empty margin click left command shell"
+      ));
+      entries.push_back(makeEntry(
+          section, "dead-zone", tr("settings.schema.bar.dead-zone-right-command.label"),
+          tr("settings.schema.bar.dead-zone-right-command.description"), deadZonePath("right_command"),
+          TextSetting{
+              .value = bar.deadZone.rightCommand, .placeholder = "", .width = 320.0f, .browseFileExtensions = {}
+          },
+          "bar empty margin click right command control center override shell"
+      ));
+      entries.push_back(makeEntry(
+          section, "dead-zone", tr("settings.schema.bar.dead-zone-scroll-up-command.label"),
+          tr("settings.schema.bar.dead-zone-scroll-up-command.description"), deadZonePath("scroll_up_command"),
+          TextSetting{
+              .value = bar.deadZone.scrollUpCommand, .placeholder = "", .width = 320.0f, .browseFileExtensions = {}
+          },
+          "bar empty margin scroll wheel up command shell"
+      ));
+      entries.push_back(makeEntry(
+          section, "dead-zone", tr("settings.schema.bar.dead-zone-scroll-down-command.label"),
+          tr("settings.schema.bar.dead-zone-scroll-down-command.description"), deadZonePath("scroll_down_command"),
+          TextSetting{
+              .value = bar.deadZone.scrollDownCommand, .placeholder = "", .width = 320.0f, .browseFileExtensions = {}
+          },
+          "bar empty margin scroll wheel down command shell"
+      ));
     }
 
     // Bar monitor overrides (all bars).
@@ -2713,6 +2746,57 @@ namespace settings {
             section, "widget-list", tr("settings.schema.bar.end-widgets.label"),
             tr("settings.schema.bar.end-widgets.description"), monitorPath("end"),
             ListSetting{.items = ovr.endWidgets.value_or(bar.endWidgets)}, "right"
+        ));
+        const auto monitorDeadZonePath = [&](std::string_view key) {
+          std::vector<std::string> p = root;
+          p.push_back("dead_zone");
+          p.push_back(std::string(key));
+          return p;
+        };
+        entries.push_back(makeEntry(
+            section, "dead-zone", tr("settings.schema.bar.dead-zone-command.label"),
+            tr("settings.schema.bar.dead-zone-command.description"), monitorDeadZonePath("command"),
+            TextSetting{
+                .value = ovr.deadZone.command.value_or(""),
+                .placeholder = bar.deadZone.command,
+                .width = 320.0f,
+                .browseFileExtensions = {},
+            },
+            "bar empty margin click left command shell"
+        ));
+        entries.push_back(makeEntry(
+            section, "dead-zone", tr("settings.schema.bar.dead-zone-right-command.label"),
+            tr("settings.schema.bar.dead-zone-right-command.description"), monitorDeadZonePath("right_command"),
+            TextSetting{
+                .value = ovr.deadZone.rightCommand.value_or(""),
+                .placeholder = bar.deadZone.rightCommand,
+                .width = 320.0f,
+                .browseFileExtensions = {},
+            },
+            "bar empty margin click right command control center override shell"
+        ));
+        entries.push_back(makeEntry(
+            section, "dead-zone", tr("settings.schema.bar.dead-zone-scroll-up-command.label"),
+            tr("settings.schema.bar.dead-zone-scroll-up-command.description"), monitorDeadZonePath("scroll_up_command"),
+            TextSetting{
+                .value = ovr.deadZone.scrollUpCommand.value_or(""),
+                .placeholder = bar.deadZone.scrollUpCommand,
+                .width = 320.0f,
+                .browseFileExtensions = {},
+            },
+            "bar empty margin scroll wheel up command shell"
+        ));
+        entries.push_back(makeEntry(
+            section, "dead-zone", tr("settings.schema.bar.dead-zone-scroll-down-command.label"),
+            tr("settings.schema.bar.dead-zone-scroll-down-command.description"),
+            monitorDeadZonePath("scroll_down_command"),
+            TextSetting{
+                .value = ovr.deadZone.scrollDownCommand.value_or(""),
+                .placeholder = bar.deadZone.scrollDownCommand,
+                .width = 320.0f,
+                .browseFileExtensions = {},
+            },
+            "bar empty margin scroll wheel down command shell"
         ));
       }
     }

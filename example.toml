@@ -284,10 +284,19 @@ start  = ["launcher", "wallpaper", "workspaces"]
 center = ["clock"]
 end    = ["media", "tray", "notifications", "clipboard", "network", "bluetooth", "volume", "brightness", "battery", "control-center", "session"]
 
+# Commands for the bar margin outside widget sections (dead zone):
+# [bar.main.dead_zone]
+# command = "noctalia msg launcher toggle"
+# right_command = ""               # empty = open Control Center (default)
+# scroll_up_command = "..."
+# scroll_down_command = "..."
+
 # Per-monitor override example — only the fields you list are overridden:
 # [bar.main.monitor.dp1]
 # match     = "DP-1"
 # thickness = 44
+# [bar.main.monitor.dp1.dead_zone]
+# command = "noctalia msg launcher toggle"
 
 # ── Dock ──────────────────────────────────────────────────────────────────────
 
