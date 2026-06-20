@@ -8,7 +8,6 @@
 #include <ctime>
 #include <fcntl.h>
 #include <filesystem>
-#include <format>
 #include <fstream>
 #include <pwd.h>
 #include <string>
@@ -131,7 +130,7 @@ std::string osAgeLabel() {
   }
   const std::time_t now = std::time(nullptr);
   if (now <= 0 || static_cast<std::uint64_t>(now) <= oldest) {
-    return "<1d";
+    return i18n::tr("system.os-age.less-than-day");
   }
 
   const std::uint64_t seconds = static_cast<std::uint64_t>(now) - oldest;
@@ -139,12 +138,14 @@ std::string osAgeLabel() {
   const std::uint64_t years = days / 365;
   const std::uint64_t months = (days % 365) / 30;
   if (years > 0) {
+    const std::string yearText = i18n::trp("system.os-age.years", static_cast<long>(years));
     if (months > 0) {
-      return std::format("{}y {}mo", years, months);
+      const std::string monthText = i18n::trp("system.os-age.months", static_cast<long>(months));
+      return i18n::tr("system.os-age.years-months", "years", yearText, "months", monthText);
     }
-    return std::format("{}y", years);
+    return yearText;
   }
-  return std::format("{} days", days);
+  return i18n::trp("system.os-age.days", static_cast<long>(days));
 }
 
 std::string sessionDisplayName() {

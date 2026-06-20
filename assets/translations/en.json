@@ -3065,6 +3065,16 @@
       "unknown-cpu": "Unknown CPU",
       "unknown-distro": "Unknown distro",
       "unknown-gpu": "Unknown GPU"
+    },
+    "os-age": {
+      "days": "{count} day",
+      "days-plural": "{count} days",
+      "less-than-day": "less than 1 day",
+      "months": "{count} month",
+      "months-plural": "{count} months",
+      "years": "{count} year",
+      "years-months": "{years} {months}",
+      "years-plural": "{count} years"
     }
   },
   "theme": {
