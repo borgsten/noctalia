@@ -87,6 +87,8 @@ public:
   [[nodiscard]] FlexSizePolicy heightPolicy() const noexcept { return m_heightPolicy; }
   [[nodiscard]] float minWidth() const noexcept { return m_minWidth; }
   [[nodiscard]] float minHeight() const noexcept { return m_minHeight; }
+  [[nodiscard]] float maxWidth() const noexcept { return m_maxWidth; }
+  [[nodiscard]] float maxHeight() const noexcept { return m_maxHeight; }
   [[nodiscard]] float paddingTop() const noexcept { return m_paddingTop; }
   [[nodiscard]] float paddingRight() const noexcept { return m_paddingRight; }
   [[nodiscard]] float paddingBottom() const noexcept { return m_paddingBottom; }

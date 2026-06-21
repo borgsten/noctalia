@@ -59,6 +59,8 @@ namespace {
     return i18n::tr("notifications.actions.fallback");
   }
 
+  constexpr std::size_t kMaxNotificationActions = 6;
+
   float measureHistoryActionsRowHeight(
       Renderer& renderer, const std::vector<std::string>& actions, float cardTextWidth, float scale
   ) {
@@ -70,53 +72,24 @@ namespace {
         .gap = Style::spaceXs * scale,
     });
 
-    std::vector<std::unique_ptr<Button>> currentRowButtons;
-    float currentRowWidth = 0.0f;
-
-    auto flushRow = [&](std::vector<std::unique_ptr<Button>>& rowButtons) {
-      if (rowButtons.empty()) {
-        return;
-      }
-      auto row = ui::row({
-          .align = FlexAlign::Center,
-          .gap = Style::spaceXs * scale,
-          .fillWidth = true,
-      });
-      for (auto& btn : rowButtons) {
-        btn->setFlexGrow(1.0f);
-        row->addChild(std::move(btn));
-      }
-      rowButtons.clear();
-      container->addChild(std::move(row));
-    };
-
-    for (std::size_t i = 0; i + 1 < actions.size(); i += 2) {
+    std::vector<std::unique_ptr<Button>> buttons;
+    const std::size_t limit = std::min(actions.size(), kMaxNotificationActions * 2);
+    for (std::size_t i = 0; i + 1 < limit; i += 2) {
       const std::string& actionKey = actions[i];
       if (actionKey.empty()) {
         continue;
       }
-      auto button = ui::button({
-          .text = historyActionLabel(actionKey, actions[i + 1]),
-          .fontSize = Style::fontSizeCaption * scale,
-          .variant = ButtonVariant::Outline,
-      });
-
-      const LayoutSize measured = button->measure(renderer, LayoutConstraints{});
-      const float btnWidth = measured.width;
-
-      if (!currentRowButtons.empty() && currentRowWidth + Style::spaceXs * scale + btnWidth > cardTextWidth) {
-        flushRow(currentRowButtons);
-        currentRowWidth = 0.0f;
-      }
-
-      if (currentRowButtons.empty()) {
-        currentRowWidth = btnWidth;
-      } else {
-        currentRowWidth += Style::spaceXs * scale + btnWidth;
-      }
-      currentRowButtons.push_back(std::move(button));
+      buttons.push_back(
+          ui::button({
+              .text = historyActionLabel(actionKey, actions[i + 1]),
+              .fontSize = Style::fontSizeCaption * scale,
+              .variant = ButtonVariant::Outline,
+          })
+      );
     }
-    flushRow(currentRowButtons);
+
+    auto rows = wrapButtonsIntoRows(renderer, buttons, cardTextWidth, Style::spaceXs * scale);
+    populateRowContainer(*container, std::move(rows), cardTextWidth, Style::spaceXs * scale);
 
     if (container->children().empty()) {
       return 0.0f;
@@ -469,28 +442,9 @@ namespace {
       }
       m_actionsRow->setVisible(false);
       if (showHistoryActions && !entry.notification.actions.empty()) {
-        std::vector<std::unique_ptr<Button>> currentRowButtons;
-        float currentRowWidth = 0.0f;
-        int shownActions = 0;
-
-        auto flushRow = [&](std::vector<std::unique_ptr<Button>>& rowButtons) {
-          if (rowButtons.empty()) {
-            return;
-          }
-          auto row = ui::row({
-              .align = FlexAlign::Center,
-              .gap = Style::spaceXs * m_scale,
-              .fillWidth = true,
-          });
-          for (auto& btn : rowButtons) {
-            btn->setFlexGrow(1.0f);
-            row->addChild(std::move(btn));
-          }
-          rowButtons.clear();
-          m_actionsRow->addChild(std::move(row));
-        };
-
-        for (std::size_t i = 0; i + 1 < entry.notification.actions.size(); i += 2) {
+        std::vector<std::unique_ptr<Button>> buttons;
+        const std::size_t limit = std::min(entry.notification.actions.size(), kMaxNotificationActions * 2);
+        for (std::size_t i = 0; i + 1 < limit; i += 2) {
           const std::string& actionKey = entry.notification.actions[i];
           if (actionKey.empty()) {
             continue;
@@ -503,27 +457,13 @@ namespace {
           button->setOnClick([onAction, id = entry.notification.id, key = std::string(actionKey)]() {
             onAction(id, key);
           });
-
-          const LayoutSize measured = button->measure(renderer, LayoutConstraints{});
-          const float btnWidth = measured.width;
-
-          if (!currentRowButtons.empty()
-              && currentRowWidth + Style::spaceXs * m_scale + btnWidth > metrics.cardTextWidth) {
-            flushRow(currentRowButtons);
-            currentRowWidth = 0.0f;
-          }
-
-          if (currentRowButtons.empty()) {
-            currentRowWidth = btnWidth;
-          } else {
-            currentRowWidth += Style::spaceXs * m_scale + btnWidth;
-          }
-          currentRowButtons.push_back(std::move(button));
-          ++shownActions;
+          buttons.push_back(std::move(button));
         }
-        flushRow(currentRowButtons);
 
-        m_actionsRow->setVisible(shownActions > 0);
+        auto rows = wrapButtonsIntoRows(renderer, buttons, metrics.cardTextWidth, Style::spaceXs * m_scale);
+        populateRowContainer(*m_actionsRow, std::move(rows), metrics.cardTextWidth, Style::spaceXs * m_scale);
+
+        m_actionsRow->setVisible(!m_actionsRow->children().empty());
       }
     }
 

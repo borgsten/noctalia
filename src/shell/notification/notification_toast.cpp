@@ -48,6 +48,7 @@ namespace {
   constexpr float kCardInnerPad = Style::spaceMd;
   constexpr float kCloseButtonSize = 20.0f;
   constexpr float kCloseGlyphSize = 12.0f;
+  constexpr std::size_t kMaxNotificationActions = 6;
   constexpr float kNotificationIconSize = 45.0f;
   constexpr float kNotificationIconSizeCompact = 38.0f;
   constexpr float kNotificationIconGlyphSize = 24.0f;
@@ -66,7 +67,8 @@ namespace {
   std::string fallbackActionLabel() { return i18n::tr("notifications.actions.fallback"); }
 
   bool hasInlineReplyAction(const std::vector<std::string>& actions) {
-    for (std::size_t i = 0; i + 1 < actions.size(); i += 2) {
+    const std::size_t limit = std::min(actions.size(), kMaxNotificationActions * 2);
+    for (std::size_t i = 0; i + 1 < limit; i += 2) {
       if (actions[i] == "inline-reply") {
         return true;
       }
@@ -75,7 +77,8 @@ namespace {
   }
 
   std::string inlineReplyPlaceholder(const std::vector<std::string>& actions) {
-    for (std::size_t i = 0; i + 1 < actions.size(); i += 2) {
+    const std::size_t limit = std::min(actions.size(), kMaxNotificationActions * 2);
+    for (std::size_t i = 0; i + 1 < limit; i += 2) {
       if (actions[i] == "inline-reply") {
         return actions[i + 1];
       }
@@ -304,7 +307,8 @@ namespace {
   std::vector<std::unique_ptr<Button>>
   collectNotificationActionButtons(const std::vector<std::string>& actions, float scale) {
     std::vector<std::unique_ptr<Button>> buttons;
-    for (std::size_t i = 0; i + 1 < actions.size(); i += 2) {
+    const std::size_t limit = std::min(actions.size(), kMaxNotificationActions * 2);
+    for (std::size_t i = 0; i + 1 < limit; i += 2) {
       const std::string& actionKey = actions[i];
       std::string actionLabel = actions[i + 1];
       if (actionKey.empty() || actionKey == "default") {
@@ -328,49 +332,8 @@ namespace {
 
     const float maxRowWidth = notificationTextMaxWidth(scale, true);
 
-    std::vector<std::unique_ptr<Button>> currentRowButtons;
-    float currentRowWidth = 0.0f;
-
-    auto flushRow = [&](std::vector<std::unique_ptr<Button>>& rowButtons) {
-      if (rowButtons.empty()) {
-        return;
-      }
-      auto row = ui::row({
-          .align = FlexAlign::Center,
-          .gap = actionGap(scale),
-          .fillWidth = true,
-      });
-      for (auto& btn : rowButtons) {
-        if (rowButtons.size() == 1) {
-          btn->setMaxWidth(maxRowWidth);
-        } else {
-          btn->setMaxWidth(0.0f);
-        }
-        btn->setFlexGrow(1.0f);
-        row->addChild(std::move(btn));
-      }
-      rowButtons.clear();
-      container.addChild(std::move(row));
-    };
-
-    for (auto& button : buttons) {
-      const LayoutSize measured = button->measure(rc, LayoutConstraints{});
-      const float btnWidth = measured.width;
-
-      if (!currentRowButtons.empty() && currentRowWidth + actionGap(scale) + btnWidth > maxRowWidth) {
-        flushRow(currentRowButtons);
-        currentRowWidth = 0.0f;
-      }
-
-      if (currentRowButtons.empty()) {
-        currentRowWidth = btnWidth;
-      } else {
-        currentRowWidth += actionGap(scale) + btnWidth;
-      }
-      currentRowButtons.push_back(std::move(button));
-    }
-    flushRow(currentRowButtons);
-    buttons.clear();
+    auto rows = wrapButtonsIntoRows(rc, buttons, maxRowWidth, actionGap(scale));
+    populateRowContainer(container, std::move(rows), maxRowWidth, actionGap(scale));
 
     container.setSize(maxRowWidth, 0.0f);
     container.layout(rc);
@@ -2375,7 +2338,8 @@ InputArea* NotificationToast::buildCard(
     // Build action buttons row (always visible initially)
     {
       std::vector<std::unique_ptr<Button>> buttons;
-      for (std::size_t i = 0; i + 1 < entry.actions.size(); i += 2) {
+      const std::size_t limit = std::min(entry.actions.size(), kMaxNotificationActions * 2);
+      for (std::size_t i = 0; i + 1 < limit; i += 2) {
         const std::string actionKey = entry.actions[i];
         std::string actionLabel = entry.actions[i + 1];
         if (actionKey.empty() || actionKey == "default") {

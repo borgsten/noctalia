@@ -184,6 +184,11 @@ uint32_t NotificationManager::addOrReplace(
     std::optional<NotificationImageData> imageData, std::optional<std::string> category,
     std::optional<std::string> desktopEntry
 ) {
+  constexpr std::size_t kMaxNotificationActions = 6;
+  if (actions.size() > kMaxNotificationActions * 2) {
+    actions.resize(kMaxNotificationActions * 2);
+  }
+
   const auto now = Clock::now();
   const auto wallNow = WallClock::now();
 

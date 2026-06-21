@@ -5,8 +5,10 @@
 #include "ui/signal.h"
 
 #include <functional>
+#include <memory>
 #include <optional>
 #include <string_view>
+#include <vector>
 
 class AnimationManager;
 
@@ -135,3 +137,17 @@ private:
   bool m_visualStateInitialized = false;
   Signal<>::ScopedConnection m_paletteConn;
 };
+
+class Renderer;
+
+// returns rows of buttons packed to fit maxWidth, gap between buttons
+std::vector<std::vector<std::unique_ptr<Button>>>
+wrapButtonsIntoRows(Renderer& renderer, std::vector<std::unique_ptr<Button>>& buttons, float maxWidth, float gap);
+
+class Flex;
+
+// Populates a container column with row sub-containers, applying layout alignment,
+// gaps, setFlexGrow(1.0f), and setMaxWidth for single-button rows.
+void populateRowContainer(
+    Flex& container, std::vector<std::vector<std::unique_ptr<Button>>> rows, float maxWidth, float gap
+);

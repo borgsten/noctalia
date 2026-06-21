@@ -1,6 +1,7 @@
 #include "ui/controls/button.h"
 
 #include "render/animation/animation_manager.h"
+#include "render/core/renderer.h"
 #include "render/scene/input_area.h"
 #include "ui/controls/glyph.h"
 #include "ui/controls/label.h"
@@ -617,6 +618,16 @@ void Button::doLayout(Renderer& renderer) {
   const bool glyphOnly = m_glyph != nullptr && !hasVisibleLabel;
 
   if (m_label != nullptr) {
+    const float maxBtnWidth = maxWidth();
+    if (maxBtnWidth > 0.0f) {
+      const float padding = paddingLeft() + paddingRight();
+      const float glyphW = (m_glyph != nullptr && m_glyph->visible()) ? m_glyph->width() + gap() : 0.0f;
+      const float labelMaxW = std::max(0.0f, maxBtnWidth - padding - glyphW);
+      m_label->setMaxWidth(labelMaxW);
+      m_label->setEllipsize(TextEllipsize::End);
+    } else {
+      m_label->setMaxWidth(0.0f);
+    }
     m_label->measure(renderer);
   }
   if (m_glyph != nullptr) {
@@ -719,7 +730,80 @@ void Button::doLayout(Renderer& renderer) {
 }
 
 LayoutSize Button::doMeasure(Renderer& renderer, const LayoutConstraints& constraints) {
+  if (m_label != nullptr) {
+    const float maxBtnWidth = maxWidth();
+    if (maxBtnWidth > 0.0f) {
+      const float padding = paddingLeft() + paddingRight();
+      const float glyphW = (m_glyph != nullptr && m_glyph->visible()) ? m_glyph->width() + gap() : 0.0f;
+      const float labelMaxW = std::max(0.0f, maxBtnWidth - padding - glyphW);
+      m_label->setMaxWidth(labelMaxW);
+      m_label->setEllipsize(TextEllipsize::End);
+    } else {
+      m_label->setMaxWidth(0.0f);
+    }
+  }
   return measureByLayout(renderer, constraints);
 }
 
 void Button::doArrange(Renderer& renderer, const LayoutRect& rect) { arrangeByLayout(renderer, rect); }
+
+std::vector<std::vector<std::unique_ptr<Button>>>
+wrapButtonsIntoRows(Renderer& renderer, std::vector<std::unique_ptr<Button>>& buttons, float maxWidth, float gap) {
+  std::vector<std::vector<std::unique_ptr<Button>>> rows;
+  if (buttons.empty()) {
+    return rows;
+  }
+
+  std::vector<std::unique_ptr<Button>> currentRow;
+  float currentRowWidth = 0.0f;
+
+  for (auto& button : buttons) {
+    if (!button) {
+      continue;
+    }
+    const LayoutSize measured = button->measure(renderer, LayoutConstraints{});
+    const float btnWidth = measured.width;
+
+    if (!currentRow.empty() && currentRowWidth + gap + btnWidth > maxWidth) {
+      rows.push_back(std::move(currentRow));
+      currentRow.clear();
+      currentRowWidth = 0.0f;
+    }
+
+    if (currentRow.empty()) {
+      currentRowWidth = btnWidth;
+    } else {
+      currentRowWidth += gap + btnWidth;
+    }
+    currentRow.push_back(std::move(button));
+  }
+
+  if (!currentRow.empty()) {
+    rows.push_back(std::move(currentRow));
+  }
+
+  buttons.clear();
+  return rows;
+}
+
+void populateRowContainer(
+    Flex& container, std::vector<std::vector<std::unique_ptr<Button>>> rows, float maxWidth, float gap
+) {
+  for (auto& rowButtons : rows) {
+    auto row = std::make_unique<Flex>();
+    row->setDirection(FlexDirection::Horizontal);
+    row->setAlign(FlexAlign::Center);
+    row->setGap(gap);
+    row->setFillWidth(true);
+    for (auto& btn : rowButtons) {
+      if (rowButtons.size() == 1) {
+        btn->setMaxWidth(maxWidth);
+      } else {
+        btn->setMaxWidth(0.0f);
+      }
+      btn->setFlexGrow(1.0f);
+      row->addChild(std::move(btn));
+    }
+    container.addChild(std::move(row));
+  }
+}
