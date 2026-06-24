@@ -165,7 +165,7 @@
     "audio": {
       "application-volumes": "Гучнасць праграм",
       "choose-effects-profile": "Выберыце профіль",
-      "effects-profile": "Эфекты:",
+      "effects-profile": "Эфекты",
       "input-device-prefix": "Увод:",
       "no-application-audio": "Аўдыя не прайграваецца",
       "no-application-audio-body": "Зараз няма праграм, якія прайграваюць аўдыя.",
@@ -1169,7 +1169,6 @@
       "shell": {
         "panel-placement": {
           "attached": "Прымацавана",
-          "centered": "Па цэнтру",
           "floating": "Нефіксаваная"
         }
       }

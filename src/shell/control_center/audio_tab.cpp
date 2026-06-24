@@ -1546,7 +1546,7 @@ std::unique_ptr<Flex> AudioTab::createDeviceVolumeCard(DeviceVolumeCardSpec card
               .participatesInLayout = false,
           },
           ui::label({
-              .text = i18n::tr("control-center.audio.effects-profile"),
+              .text = i18n::tr("control-center.audio.effects-profile") + ":",
               .fontSize = Style::fontSizeCaption * scale,
               .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
           }),

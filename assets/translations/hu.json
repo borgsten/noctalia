@@ -1169,7 +1169,6 @@
       "shell": {
         "panel-placement": {
           "attached": "Rögzített",
-          "centered": "Középre",
           "floating": "Lebegő"
         },
         "panel-transparency": {

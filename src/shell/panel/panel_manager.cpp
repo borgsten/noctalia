@@ -11,6 +11,7 @@
 #include "shell/bar/bar_reserved_zone.h"
 #include "shell/clipboard/clipboard_panel.h"
 #include "shell/control_center/control_center_panel.h"
+#include "shell/screen_position.h"
 #include "shell/surface/shadow.h"
 #include "shell/tooltip/tooltip_manager.h"
 #include "ui/controls/box.h"
@@ -164,6 +165,31 @@ namespace {
     return detachedPanelBackgroundOpacityForTransparencyMode(mode);
   }
 
+  // Floating screen position for a built-in panel (one of kPanelPositions).
+  // "auto" = bar-relative (and the default for any non-built-in panel).
+  [[nodiscard]] std::string resolvePanelPosition(const ConfigService* configService, std::string_view panelId) {
+    if (configService == nullptr) {
+      return "auto";
+    }
+    const auto& pc = configService->config().shell.panel;
+    if (panelId == "control-center") {
+      return pc.controlCenterPosition;
+    }
+    if (panelId == "launcher") {
+      return pc.launcherPosition;
+    }
+    if (panelId == "clipboard") {
+      return pc.clipboardPosition;
+    }
+    if (panelId == "wallpaper") {
+      return pc.wallpaperPosition;
+    }
+    if (panelId == "session") {
+      return pc.sessionPosition;
+    }
+    return "auto";
+  }
+
   [[nodiscard]] bool openNearClickEnabledForPanel(const ConfigService* configService, std::string_view panelId) {
     if (panelId == "tray-drawer") {
       return true;
@@ -172,35 +198,24 @@ namespace {
       return false;
     }
     const auto& pc = configService->config().shell.panel;
+    // A floating panel pinned to a fixed screen position ignores open-near-click.
+    const auto pinned = [](PanelPlacement placement, const std::string& position) {
+      return placement == PanelPlacement::Floating && position != "auto";
+    };
     if (panelId == "control-center") {
-      if (pc.controlCenterPlacement == PanelPlacement::Centered) {
-        return false;
-      }
-      return pc.openNearClickControlCenter;
+      return !pinned(pc.controlCenterPlacement, pc.controlCenterPosition) && pc.openNearClickControlCenter;
     }
     if (panelId == "launcher") {
-      if (pc.launcherPlacement == PanelPlacement::Centered) {
-        return false;
-      }
-      return pc.openNearClickLauncher;
+      return !pinned(pc.launcherPlacement, pc.launcherPosition) && pc.openNearClickLauncher;
     }
     if (panelId == "clipboard") {
-      if (pc.clipboardPlacement == PanelPlacement::Centered) {
-        return false;
-      }
-      return pc.openNearClickClipboard;
+      return !pinned(pc.clipboardPlacement, pc.clipboardPosition) && pc.openNearClickClipboard;
     }
     if (panelId == "wallpaper") {
-      if (pc.wallpaperPlacement == PanelPlacement::Centered) {
-        return false;
-      }
-      return pc.openNearClickWallpaper;
+      return !pinned(pc.wallpaperPlacement, pc.wallpaperPosition) && pc.openNearClickWallpaper;
     }
     if (panelId == "session") {
-      if (pc.sessionPlacement == PanelPlacement::Centered) {
-        return false;
-      }
-      return pc.openNearClickSession;
+      return !pinned(pc.sessionPlacement, pc.sessionPosition) && pc.openNearClickSession;
     }
     return false;
   }
@@ -399,7 +414,13 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
   };
 
   const PanelPlacement activePlacement = m_activePanel->panelPlacement();
-  const bool useCenteredPlacement = activePlacement == PanelPlacement::Centered
+  // A floating panel's screen position. "auto" keeps the bar-relative placement;
+  // "center" reserves the screen centre (the former Centered placement); any other
+  // token anchors the panel to a screen edge/corner independent of the bar.
+  const std::string panelPosition = resolvePanelPosition(m_config, m_activePanelId);
+  const bool useScreenPosition =
+      activePlacement == PanelPlacement::Floating && panelPosition != "auto" && panelPosition != "center";
+  const bool useCenteredPlacement = (activePlacement == PanelPlacement::Floating && panelPosition == "center")
       || (activePlacement == PanelPlacement::Attached
           && m_attachedPanelAvailabilityCallback != nullptr
           && !m_attachedPanelAvailabilityCallback(request.output, m_sourceBarName));
@@ -414,8 +435,11 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
   const auto barRect = resolveBarVisibleRect(barConfig, outputWidth, outputHeight);
   const bool multipleBarsOnEdge =
       hasMultipleEnabledBarsOnEdge(m_config, m_platform, request.output, barConfig.position);
-  const bool useReservedEdgePlacement =
-      !useCenteredPlacement && multipleBarsOnEdge && barConfig.reserveSpace && barConfig.thickness > 0;
+  const bool useReservedEdgePlacement = !useCenteredPlacement
+      && !useScreenPosition
+      && multipleBarsOnEdge
+      && barConfig.reserveSpace
+      && barConfig.thickness > 0;
   const auto marginLeftFromAnchor = clampMargin(
       request.anchorX - static_cast<float>(panelWidth) * 0.5f, static_cast<std::int32_t>(panelWidth), outputWidth,
       screenPadding
@@ -442,7 +466,15 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
         static_cast<std::int32_t>(panelHeight), outputHeight, screenPadding
     );
 
-    if (useReservedEdgePlacement) {
+    if (useScreenPosition) {
+      // Pinned to a screen edge/corner, independent of the bar.
+      const auto sp = shell::screenPositionAnchor(panelPosition, panelGap);
+      standaloneAnchor = sp.anchor;
+      standaloneMarginTop = sp.marginTop;
+      standaloneMarginRight = sp.marginRight;
+      standaloneMarginBottom = sp.marginBottom;
+      standaloneMarginLeft = sp.marginLeft;
+    } else if (useReservedEdgePlacement) {
       if (isLeft) {
         standaloneAnchor = LayerShellAnchor::Left | LayerShellAnchor::Top;
         standaloneMarginLeft = panelGap;
@@ -512,7 +544,7 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
   // bar's reserved edge so the panel tracks the bar's real on-screen position;
   // subtract the bar's own reservation on the main axis to avoid double-counting.
   // Reproduces the prior absolute placement when nothing else reserves space.
-  const bool useBarRelativeDetached = !useCenteredPlacement && !useReservedEdgePlacement;
+  const bool useBarRelativeDetached = !useCenteredPlacement && !useScreenPosition && !useReservedEdgePlacement;
   if (useBarRelativeDetached) {
     const std::int32_t barReserved =
         barConfig.reserveSpace ? reservedBarExclusiveZone(barConfig, m_config->config().shell.shadow) : 0;
@@ -1080,9 +1112,7 @@ void PanelManager::togglePanel(const std::string& panelId, PanelOpenRequest requ
       }
       // Panels placed near the clicked widget must fully reopen so geometry
       // and bar decoration track the new anchor.
-      if (request.hasAnchorPosition
-          && m_activePanel->panelPlacement() != PanelPlacement::Centered
-          && openNearClickEnabledForPanel(m_config, panelId)) {
+      if (request.hasAnchorPosition && openNearClickEnabledForPanel(m_config, panelId)) {
         openPanel(panelId, request);
         return;
       }

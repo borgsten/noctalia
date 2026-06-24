@@ -119,7 +119,7 @@
     "audio": {
       "application-volumes": "Volume de Aplicativos",
       "choose-effects-profile": "Escolha um perfil",
-      "effects-profile": "Efeitos:",
+      "effects-profile": "Efeitos",
       "no-application-audio": "Sem áudio de aplicativos",
       "no-application-audio-body": "Não há fluxos de reprodução de aplicativos disponíveis no momento.",
       "no-input-devices": "Nenhuma entrada de dispositivos",
@@ -1060,7 +1060,6 @@
       "shell": {
         "panel-placement": {
           "attached": "Acoplado",
-          "centered": "Centralizado",
           "floating": "Flutuante"
         },
         "panel-transparency": {

@@ -288,7 +288,6 @@ struct ResolvedIdleBehavior {
   bool operator==(const ResolvedIdleBehavior&) const = default;
 };
 
-void inferIdleBehaviorActionFromLegacyFields(IdleBehaviorConfig& behavior);
 void normalizeIdleBehaviorAction(IdleBehaviorConfig& behavior);
 [[nodiscard]] ResolvedIdleBehavior resolveIdleBehaviorActions(const IdleBehaviorConfig& behavior);
 
@@ -750,14 +749,20 @@ panelCardOpacityForTransparencyMode(PanelTransparencyMode mode, float panelBackg
 enum class PanelPlacement : std::uint8_t {
   Attached = 0,
   Floating = 1,
-  Centered = 2,
 };
 
 constexpr EnumOption<PanelPlacement> kPanelPlacements[] = {
     {PanelPlacement::Attached, "attached", "settings.options.shell.panel-placement.attached"},
     {PanelPlacement::Floating, "floating", "settings.options.shell.panel-placement.floating"},
-    {PanelPlacement::Centered, "centered", "settings.options.shell.panel-placement.centered"},
 };
+
+// Screen-anchor tokens for a floating panel's `<panel>_position`. "auto" keeps the
+// panel bar-relative (the historical floating behavior); "center" reserves the
+// screen center; the rest anchor to a screen edge/corner. Same vocabulary as the
+// OSD/notification `position`.
+constexpr std::string_view kPanelPositions[] = {"auto",          "center",      "top_left",     "top_center",
+                                                "top_right",     "center_left", "center_right", "bottom_left",
+                                                "bottom_center", "bottom_right"};
 
 constexpr EnumOption<WallpaperFillMode> kWallpaperFillModes[] = {
     {WallpaperFillMode::Center, "center", "settings.options.wallpaper.fill.center"},
@@ -801,11 +806,18 @@ struct ShellConfig {
     PanelTransparencyMode transparencyMode = PanelTransparencyMode::Solid;
     bool borders = true; // panel shell outline and in-panel section cards
     bool shadow = true;  // cast the global [shell.shadow] from panel surfaces
-    PanelPlacement launcherPlacement = PanelPlacement::Centered;
-    PanelPlacement clipboardPlacement = PanelPlacement::Centered;
+    PanelPlacement launcherPlacement = PanelPlacement::Floating;
+    PanelPlacement clipboardPlacement = PanelPlacement::Floating;
     PanelPlacement controlCenterPlacement = PanelPlacement::Attached;
     PanelPlacement wallpaperPlacement = PanelPlacement::Attached;
     PanelPlacement sessionPlacement = PanelPlacement::Attached;
+    // Floating screen position per panel (one of kPanelPositions). "auto" = bar-relative.
+    // Launcher/clipboard default to "center" (the historical centered placement).
+    std::string launcherPosition = "center";
+    std::string clipboardPosition = "center";
+    std::string controlCenterPosition = "auto";
+    std::string wallpaperPosition = "auto";
+    std::string sessionPosition = "auto";
     std::int32_t floatingOffset = 8; // logical px gap between a floating/detached panel and the bar edge
     bool openNearClickControlCenter = false;
     bool openNearClickLauncher = false;

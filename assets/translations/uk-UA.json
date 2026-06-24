@@ -974,7 +974,6 @@
       "shell": {
         "panel-placement": {
           "attached": "Прикріплений",
-          "centered": "По центру",
           "floating": "Плаваюча"
         },
         "panel-transparency": {

@@ -189,31 +189,7 @@ float detachedPanelBackgroundOpacityForTransparencyMode(PanelTransparencyMode mo
   return 1.0f;
 }
 
-void inferIdleBehaviorActionFromLegacyFields(IdleBehaviorConfig& behavior) {
-  if (!behavior.action.empty()) {
-    return;
-  }
-  if (behavior.command == "noctalia:session lock") {
-    behavior.action = "lock";
-    return;
-  }
-  if (behavior.command == "noctalia:dpms-off") {
-    behavior.action = "screen_off";
-    return;
-  }
-  if (behavior.command == "noctalia:session suspend") {
-    behavior.action = "suspend";
-    return;
-  }
-  if (behavior.command == "noctalia:session lock-and-suspend") {
-    behavior.action = "lock_and_suspend";
-    return;
-  }
-  behavior.action = "command";
-}
-
 void normalizeIdleBehaviorAction(IdleBehaviorConfig& behavior) {
-  inferIdleBehaviorActionFromLegacyFields(behavior);
   if (behavior.action == "suspend" && behavior.lockBeforeSuspend) {
     behavior.action = "lock_and_suspend";
   }

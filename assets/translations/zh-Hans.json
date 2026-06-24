@@ -1169,7 +1169,6 @@
       "shell": {
         "panel-placement": {
           "attached": "吸附",
-          "centered": "居中",
           "floating": "悬浮"
         },
         "panel-transparency": {
@@ -3119,6 +3118,7 @@
       "m3-rainbow": "M3 Rainbow",
       "m3-tonal-spot": "M3 Tonal Spot",
       "muted": "Muted",
+      "soft": "Soft",
       "vibrant": "Vibrant"
     }
   },

@@ -162,7 +162,7 @@
     "audio": {
       "application-volumes": "Громкость приложений",
       "choose-effects-profile": "Выберите профиль",
-      "effects-profile": "Эффекты:",
+      "effects-profile": "Эффекты",
       "input-device-prefix": "Ввод:",
       "no-application-audio": "Нет звука приложений",
       "no-application-audio-body": "Нет доступных потоков воспроизведения из приложений.",
@@ -1120,7 +1120,6 @@
       "shell": {
         "panel-placement": {
           "attached": "Прикреплённая",
-          "centered": "По центру",
           "floating": "Плавающая"
         },
         "panel-transparency": {

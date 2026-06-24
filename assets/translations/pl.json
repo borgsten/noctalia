@@ -980,7 +980,6 @@
       "shell": {
         "panel-placement": {
           "attached": "Przyłączone",
-          "centered": "Wyśrodkowane",
           "floating": "Pływające"
         },
         "panel-transparency": {

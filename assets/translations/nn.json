@@ -165,7 +165,7 @@
     "audio": {
       "application-volumes": "Ljodstyrke på applikasjonar",
       "choose-effects-profile": "Vel profil",
-      "effects-profile": "Verknader:",
+      "effects-profile": "Verknader",
       "input-device-prefix": "Innljod:",
       "no-application-audio": "Applikasjonen har ikkje ljod",
       "no-application-audio-body": "Ingen applikasjonar spelar ljod av no.",
@@ -1168,7 +1168,6 @@
       "shell": {
         "panel-placement": {
           "attached": "Bunden",
-          "centered": "I midten",
           "floating": "Svivande"
         },
         "panel-transparency": {

@@ -655,7 +655,7 @@ LauncherPanel::LauncherPanel(ConfigService* config, AsyncTextureCache* asyncText
 LauncherPanel::~LauncherPanel() = default;
 
 PanelPlacement LauncherPanel::panelPlacement() const noexcept {
-  return m_config != nullptr ? m_config->config().shell.panel.launcherPlacement : PanelPlacement::Centered;
+  return m_config != nullptr ? m_config->config().shell.panel.launcherPlacement : PanelPlacement::Floating;
 }
 
 void LauncherPanel::addProvider(std::unique_ptr<LauncherProvider> provider) {

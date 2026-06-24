@@ -1048,7 +1048,6 @@
       "shell": {
         "panel-placement": {
           "attached": "Angeheftet",
-          "centered": "Zentriert",
           "floating": "Schwebend"
         },
         "panel-transparency": {

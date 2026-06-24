@@ -55,7 +55,7 @@ public:
   // Panel placement policy. `Attached` merges with the bar when a suitable host
   // exists, `Floating` opens detached near the bar, and `Centered` opens in the
   // middle of the target output.
-  [[nodiscard]] virtual PanelPlacement panelPlacement() const noexcept { return PanelPlacement::Centered; }
+  [[nodiscard]] virtual PanelPlacement panelPlacement() const noexcept { return PanelPlacement::Floating; }
   // For attached panels: which bar edge to attach to when more than one bar exists on
   // the target output. Returned value must outlive the call (use a string literal).
   [[nodiscard]] virtual std::string_view preferredAttachedBarPosition() const noexcept { return "top"; }

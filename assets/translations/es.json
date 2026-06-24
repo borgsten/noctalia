@@ -119,7 +119,7 @@
     "audio": {
       "application-volumes": "Volumen de aplicaciones",
       "choose-effects-profile": "Selecciona un perfil",
-      "effects-profile": "Efectos:",
+      "effects-profile": "Efectos",
       "no-application-audio": "Sin aplicacion de audio",
       "no-application-audio-body": "No hay ninguna aplicación reproduciendo audio en este momento.",
       "no-input-devices": "No hay dispositivos de entrada",

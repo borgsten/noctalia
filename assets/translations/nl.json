@@ -163,7 +163,7 @@
     "audio": {
       "application-volumes": "Applicatievolumes",
       "choose-effects-profile": "Kies een profiel",
-      "effects-profile": "Effecten:",
+      "effects-profile": "Effecten",
       "input-device-prefix": "Invoer:",
       "no-application-audio": "Geen applicatiegeluid",
       "no-application-audio-body": "Er zijn momenteel geen applicatie-afspeelbronnen beschikbaar.",
@@ -1108,7 +1108,6 @@
       "shell": {
         "panel-placement": {
           "attached": "Vastgemaakt",
-          "centered": "Gecentreerd",
           "floating": "Zwevend"
         },
         "panel-transparency": {

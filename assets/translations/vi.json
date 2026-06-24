@@ -162,7 +162,7 @@
     "audio": {
       "application-volumes": "Âm lượng ứng dụng",
       "choose-effects-profile": "Chọn một cấu hình",
-      "effects-profile": "Hiệu ứng:",
+      "effects-profile": "Hiệu ứng",
       "input-device-prefix": "Đầu vào:",
       "no-application-audio": "Không có âm thanh từ ứng dụng",
       "no-application-audio-body": "Hiện không có ứng dụng nào đang phát âm thanh.",
@@ -1116,7 +1116,6 @@
       "shell": {
         "panel-placement": {
           "attached": "Gắn vào",
-          "centered": "Canh giữa",
           "floating": "Nổi"
         },
         "panel-transparency": {

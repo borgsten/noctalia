@@ -142,7 +142,7 @@ namespace {
 
   std::string idleBehaviorTitle(const IdleBehaviorConfig& row) {
     IdleBehaviorConfig norm = row;
-    inferIdleBehaviorActionFromLegacyFields(norm);
+    normalizeIdleBehaviorAction(norm);
     if (norm.action == "lock") {
       return i18n::tr("settings.idle.behavior.kind.lock");
     }
@@ -634,13 +634,13 @@ void SettingsWindow::openIdleBehaviorEntryEditor(std::size_t index) {
 
   auto rowState = std::make_shared<IdleBehaviorConfig>(cfg.idle.behaviors[index]);
   auto rowKey = std::make_shared<std::string>(rowState->name);
-  inferIdleBehaviorActionFromLegacyFields(*rowState);
+  normalizeIdleBehaviorAction(*rowState);
 
   const auto persist = [this, rowState, rowKey, index]() {
     if (m_config == nullptr) {
       return;
     }
-    inferIdleBehaviorActionFromLegacyFields(*rowState);
+    normalizeIdleBehaviorAction(*rowState);
     auto next = m_config->config().idle.behaviors;
     auto target = std::ranges::find(next, *rowKey, &IdleBehaviorConfig::name);
     if (target == next.end() && index < next.size()) {
@@ -760,7 +760,7 @@ void SettingsWindow::openIdleBehaviorCreateEditor() {
     if (m_config == nullptr) {
       return;
     }
-    inferIdleBehaviorActionFromLegacyFields(*rowState);
+    normalizeIdleBehaviorAction(*rowState);
     auto next = m_config->config().idle.behaviors;
     next.push_back(*rowState);
     normalizeIdleBehaviorNames(next);

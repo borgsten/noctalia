@@ -938,12 +938,45 @@ namespace settings {
         },
         "floating detached panel gap offset distance bar"
     ));
+    // Floating-position select for a panel, shown only when its placement is Floating.
+    const auto panelPositionEntry = [&](SettingsSection section, std::string group, std::string_view panelKey,
+                                        std::string_view labelKey, std::string_view descKey,
+                                        const std::string& current) {
+      auto e = makeEntry(
+          section, group, tr(labelKey), tr(descKey),
+          {std::string("shell"), std::string("panel"), std::string(panelKey) + "_position"},
+          plainSelect(
+              {{"auto", "settings.options.panel-position.auto"},
+               {"center", "settings.options.screen-position.center"},
+               {"top_left", "settings.options.screen-position.top-left"},
+               {"top_center", "settings.options.screen-position.top-center"},
+               {"top_right", "settings.options.screen-position.top-right"},
+               {"center_left", "settings.options.screen-position.center-left"},
+               {"center_right", "settings.options.screen-position.center-right"},
+               {"bottom_left", "settings.options.screen-position.bottom-left"},
+               {"bottom_center", "settings.options.screen-position.bottom-center"},
+               {"bottom_right", "settings.options.screen-position.bottom-right"}},
+              current
+          ),
+          "panel position screen anchor corner edge floating bottom right"
+      );
+      e.visibleWhen = SettingVisibility{
+          {std::string("shell"), std::string("panel"), std::string(panelKey) + "_placement"}, {"floating"}
+      };
+      return e;
+    };
+
     entries.push_back(makeEntry(
         SettingsSection::ControlCenter, "general", tr("settings.schema.panels.placement-control-center.label"),
         tr("settings.schema.panels.placement-control-center.description"),
         {"shell", "panel", "control_center_placement"},
         asSegmented(enumSelect(kPanelPlacements, cfg.shell.panel.controlCenterPlacement)),
-        "attached floating centered bar panel position"
+        "attached floating bar panel position"
+    ));
+    entries.push_back(panelPositionEntry(
+        SettingsSection::ControlCenter, "general", "control_center",
+        "settings.schema.panels.position-control-center.label",
+        "settings.schema.panels.position-control-center.description", cfg.shell.panel.controlCenterPosition
     ));
     {
       auto e = makeEntry(
@@ -989,7 +1022,11 @@ namespace settings {
         SettingsSection::Panels, "launcher", tr("settings.schema.panels.placement-launcher.label"),
         tr("settings.schema.panels.placement-launcher.description"), {"shell", "panel", "launcher_placement"},
         asSegmented(enumSelect(kPanelPlacements, cfg.shell.panel.launcherPlacement)),
-        "attached floating centered bar panel position"
+        "attached floating bar panel position"
+    ));
+    entries.push_back(panelPositionEntry(
+        SettingsSection::Panels, "launcher", "launcher", "settings.schema.panels.position-launcher.label",
+        "settings.schema.panels.position-launcher.description", cfg.shell.panel.launcherPosition
     ));
     {
       auto e = makeEntry(
@@ -1036,7 +1073,11 @@ namespace settings {
         SettingsSection::Panels, "clipboard", tr("settings.schema.panels.placement-clipboard.label"),
         tr("settings.schema.panels.placement-clipboard.description"), {"shell", "panel", "clipboard_placement"},
         asSegmented(enumSelect(kPanelPlacements, cfg.shell.panel.clipboardPlacement)),
-        "attached floating centered bar panel position"
+        "attached floating bar panel position"
+    ));
+    entries.push_back(panelPositionEntry(
+        SettingsSection::Panels, "clipboard", "clipboard", "settings.schema.panels.position-clipboard.label",
+        "settings.schema.panels.position-clipboard.description", cfg.shell.panel.clipboardPosition
     ));
     {
       auto e = makeEntry(
@@ -1052,7 +1093,11 @@ namespace settings {
         SettingsSection::Panels, "wallpaper", tr("settings.schema.panels.placement-wallpaper.label"),
         tr("settings.schema.panels.placement-wallpaper.description"), {"shell", "panel", "wallpaper_placement"},
         asSegmented(enumSelect(kPanelPlacements, cfg.shell.panel.wallpaperPlacement)),
-        "attached floating centered bar panel position"
+        "attached floating bar panel position"
+    ));
+    entries.push_back(panelPositionEntry(
+        SettingsSection::Panels, "wallpaper", "wallpaper", "settings.schema.panels.position-wallpaper.label",
+        "settings.schema.panels.position-wallpaper.description", cfg.shell.panel.wallpaperPosition
     ));
     {
       auto e = makeEntry(
@@ -1068,7 +1113,11 @@ namespace settings {
         SettingsSection::Panels, "session-panel", tr("settings.schema.panels.placement-session.label"),
         tr("settings.schema.panels.placement-session.description"), {"shell", "panel", "session_placement"},
         asSegmented(enumSelect(kPanelPlacements, cfg.shell.panel.sessionPlacement)),
-        "attached floating centered bar panel power menu position"
+        "attached floating bar panel power menu position"
+    ));
+    entries.push_back(panelPositionEntry(
+        SettingsSection::Panels, "session-panel", "session", "settings.schema.panels.position-session.label",
+        "settings.schema.panels.position-session.description", cfg.shell.panel.sessionPosition
     ));
     {
       auto e = makeEntry(

@@ -500,7 +500,7 @@ ClipboardPanel::ClipboardPanel(
 ClipboardPanel::~ClipboardPanel() = default;
 
 PanelPlacement ClipboardPanel::panelPlacement() const noexcept {
-  return m_config != nullptr ? m_config->config().shell.panel.clipboardPlacement : PanelPlacement::Centered;
+  return m_config != nullptr ? m_config->config().shell.panel.clipboardPlacement : PanelPlacement::Floating;
 }
 
 void ClipboardPanel::setActivateCallback(std::function<void(const ClipboardEntry&)> callback) {
