@@ -133,6 +133,7 @@ offset_y           = 8              # absolute vertical margin from the screen e
 # play_sound      = true
 # allowed_urgencies = ["normal", "critical"]  # omit or list all three to allow every level
 # IPC examples:
+# noctalia msg notification-invoke-latest
 # noctalia msg notification-clear-active
 # noctalia msg notification-clear-history
 
