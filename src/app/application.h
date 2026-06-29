@@ -188,6 +188,8 @@ private:
   [[nodiscard]] bool likelySupportsInSessionPolkit() const noexcept;
   void syncClipboardService();
   void syncScreenTimeService();
+  void performGreeterSync(bool quiet = false);
+  void scheduleGreeterAutoSync();
   bool runUserCommandBlocking(const std::string& command);
   bool runIdleAction(const IdleActionRequest& action);
   void onIconThemeChanged();
@@ -337,6 +339,7 @@ private:
   Timer m_trayInitTimer;
   Timer m_polkitInitTimer;
   Timer m_greeterSyncTimeoutTimer;
+  Timer m_greeterAutoSyncTimer;
   Timer m_clipboardAutoPasteTimer;
   Timer m_pluginAutoUpdateTimer;
   std::uint64_t m_greeterSyncGeneration = 0;

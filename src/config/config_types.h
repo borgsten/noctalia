@@ -226,6 +226,7 @@ struct ShellGreeterSyncConfig {
   // Shell prefix that replaces the default pkexec/run0 escalator before the apply helper
   // path and staging directory. Empty = pkexec or run0. Example: "ghostty -e pkexec"
   std::string privilegeCommand;
+  bool autoSync = false;
 
   bool operator==(const ShellGreeterSyncConfig&) const = default;
 };

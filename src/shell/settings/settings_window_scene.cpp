@@ -930,7 +930,19 @@ void SettingsWindow::buildScene(std::uint32_t width, std::uint32_t height) {
         .searchText = "greeter login sync appearance wallpaper colors security",
         .visibleWhen = std::nullopt,
     };
-    m_settingsRegistry.insert(it, std::move(btn));
+    auto insertedIt = m_settingsRegistry.insert(it, std::move(btn));
+    ++insertedIt;
+    settings::SettingEntry toggle{
+        .section = settings::SettingsSection::Security,
+        .group = "privacy-security",
+        .title = i18n::tr("settings.schema.shell.greeter-sync-auto.label"),
+        .subtitle = i18n::tr("settings.schema.shell.greeter-sync-auto.description"),
+        .path = {"shell", "greeter_sync", "auto_sync"},
+        .control = settings::ToggleSetting{cfg.shell.greeterSync.autoSync},
+        .searchText = "greeter sync auto automatic",
+        .visibleWhen = std::nullopt,
+    };
+    m_settingsRegistry.insert(insertedIt, std::move(toggle));
   }
 
   if (m_resetLauncherUsage) {

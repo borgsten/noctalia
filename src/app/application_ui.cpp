@@ -171,45 +171,87 @@ void Application::initUiRenderSurfacesAndSettings() {
       );
     }
   });
-  m_settingsWindow.setSyncGreeterAppearance([this]() {
-    const std::uint64_t generation = ++m_greeterSyncGeneration;
-    m_greeterSyncTimeoutTimer.stop();
+  m_settingsWindow.setSyncGreeterAppearance([this]() { performGreeterSync(); });
+  m_settingsWindow.setSaveWallpaperPaletteAsCustom([this]() {
+    std::string paletteName;
+    std::string error;
+    if (!m_themeService.saveWallpaperPaletteAsCustom(&paletteName, &error)) {
+      m_settingsWindow.markSettingsWriteError(
+          error.empty() ? i18n::tr("settings.errors.export-wallpaper-palette") : std::move(error)
+      );
+      return;
+    }
+    m_settingsWindow.onExternalOptionsChanged();
+    m_settingsWindow.markSettingsWriteSuccess(true);
+    notify::info(
+        "Noctalia", i18n::tr("notifications.internal.wallpaper-palette-export"),
+        i18n::tr("notifications.internal.wallpaper-palette-export-success", "name", paletteName)
+    );
+  });
+}
 
-    const auto complete = [this, generation](bool success) {
-      if (generation != m_greeterSyncGeneration) {
-        return;
-      }
-      m_greeterSyncTimeoutTimer.stop();
-      DeferredCall::callLater([this, success]() {
-        if (success) {
+void Application::performGreeterSync(bool quiet) {
+  const std::uint64_t generation = ++m_greeterSyncGeneration;
+  m_greeterSyncTimeoutTimer.stop();
+
+  const auto complete = [this, generation, quiet](bool success) {
+    if (generation != m_greeterSyncGeneration) {
+      return;
+    }
+    m_greeterSyncTimeoutTimer.stop();
+    if (success) {
+      if (!quiet) {
+        DeferredCall::callLater([this]() {
           notify::info(
               "Noctalia", i18n::tr("notifications.internal.greeter-sync"),
               i18n::tr("notifications.internal.greeter-sync-success")
           );
-          return;
-        }
-        m_settingsWindow.markSettingsWriteError(i18n::tr("settings.errors.sync-greeter"));
-      });
-    };
-
-    if (m_configService.config().shell.polkitAgent && m_polkitAgent != nullptr) {
-      m_polkitAgent->markNextRequestInternal();
-    }
-    const auto launch = greeter::syncAppearanceToGreeterAsync(
-        m_configService, m_themeService.resolvedMode(), complete, &m_compositorPlatform, m_logindService != nullptr
-    );
-    if (launch == greeter::GreeterSyncLaunch::Failed) {
-      m_settingsWindow.markSettingsWriteError(i18n::tr("settings.errors.sync-greeter"));
+        });
+      }
       return;
     }
-    if (launch == greeter::GreeterSyncLaunch::StagedOnly) {
+    DeferredCall::callLater([this, quiet]() {
+      if (quiet) {
+        notify::error(
+            "Noctalia", i18n::tr("notifications.internal.greeter-sync"), i18n::tr("settings.errors.sync-greeter")
+        );
+      } else {
+        m_settingsWindow.markSettingsWriteError(i18n::tr("settings.errors.sync-greeter"));
+      }
+    });
+  };
+
+  if (m_configService.config().shell.polkitAgent && m_polkitAgent != nullptr) {
+    m_polkitAgent->markNextRequestInternal();
+  }
+  const auto launch = greeter::syncAppearanceToGreeterAsync(
+      m_configService, m_themeService.resolvedMode(), complete, &m_compositorPlatform, m_logindService != nullptr
+  );
+  if (launch == greeter::GreeterSyncLaunch::Failed) {
+    if (quiet) {
+      notify::error(
+          "Noctalia", i18n::tr("notifications.internal.greeter-sync"), i18n::tr("settings.errors.sync-greeter")
+      );
+    } else {
+      m_settingsWindow.markSettingsWriteError(i18n::tr("settings.errors.sync-greeter"));
+    }
+    return;
+  }
+  if (launch == greeter::GreeterSyncLaunch::StagedOnly) {
+    if (quiet) {
+      notify::error(
+          "Noctalia", i18n::tr("notifications.internal.greeter-sync"), i18n::tr("settings.errors.sync-greeter")
+      );
+    } else {
       notify::info(
           "Noctalia", i18n::tr("notifications.internal.greeter-sync"),
           i18n::tr("notifications.internal.greeter-sync-pending-manual")
       );
-      return;
     }
+    return;
+  }
 
+  if (!quiet) {
     const bool customPrivilege =
         !StringUtils::trim(m_configService.config().shell.greeterSync.privilegeCommand).empty();
     const bool polkitAgentActive = m_configService.config().shell.polkitAgent && m_polkitAgent != nullptr;
@@ -221,7 +263,10 @@ void Application::initUiRenderSurfacesAndSettings() {
       pendingBodyKey = "notifications.internal.greeter-sync-pending-console";
     }
     notify::info("Noctalia", i18n::tr("notifications.internal.greeter-sync"), i18n::tr(pendingBodyKey));
+  }
 
+  if (!quiet) {
+    const bool inSessionPolkit = likelySupportsInSessionPolkit();
     m_greeterSyncTimeoutTimer.start(std::chrono::seconds(90), [this, generation, inSessionPolkit]() {
       if (generation != m_greeterSyncGeneration) {
         return;
@@ -241,23 +286,15 @@ void Application::initUiRenderSurfacesAndSettings() {
         );
       });
     });
-  });
-  m_settingsWindow.setSaveWallpaperPaletteAsCustom([this]() {
-    std::string paletteName;
-    std::string error;
-    if (!m_themeService.saveWallpaperPaletteAsCustom(&paletteName, &error)) {
-      m_settingsWindow.markSettingsWriteError(
-          error.empty() ? i18n::tr("settings.errors.export-wallpaper-palette") : std::move(error)
-      );
-      return;
-    }
-    m_settingsWindow.onExternalOptionsChanged();
-    m_settingsWindow.markSettingsWriteSuccess(true);
-    notify::info(
-        "Noctalia", i18n::tr("notifications.internal.wallpaper-palette-export"),
-        i18n::tr("notifications.internal.wallpaper-palette-export-success", "name", paletteName)
-    );
-  });
+  }
+}
+
+void Application::scheduleGreeterAutoSync() {
+  if (!m_configService.config().shell.greeterSync.autoSync) {
+    return;
+  }
+  m_greeterAutoSyncTimer.stop();
+  m_greeterAutoSyncTimer.start(std::chrono::milliseconds(1000), [this]() { performGreeterSync(true); });
 }
 
 void Application::initLockScreenAndSession() {

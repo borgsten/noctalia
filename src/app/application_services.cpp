@@ -683,6 +683,7 @@ void Application::initAuxServicesAndHooks() {
     if (m_panelManager.isOpenPanel("control-center")) {
       m_panelManager.refresh();
     }
+    scheduleGreeterAutoSync();
     const auto fireWallpaperChangedHook = [this](const std::string& path, const std::string& connector) {
       m_hookManager.fire(
           HookKind::WallpaperChanged, {{"NOCTALIA_WALLPAPER_PATH", path}, {"NOCTALIA_WALLPAPER_CONNECTOR", connector}}
@@ -703,6 +704,7 @@ void Application::initAuxServicesAndHooks() {
     m_trayMenu.onThemeChanged();
     m_backdrop.onThemeChanged();
     m_settingsWindow.onThemeChanged();
+    scheduleGreeterAutoSync();
   });
 
   if (const auto distro = DistroDetector::detect(); distro.has_value()) {

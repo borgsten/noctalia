@@ -1315,6 +1315,7 @@ namespace noctalia::config::schema {
 
     const Schema<ShellGreeterSyncConfig>& shellGreeterSyncSchema() {
       static const Schema<ShellGreeterSyncConfig> s = {
+          field(&ShellGreeterSyncConfig::autoSync, "auto_sync"),
           custom<ShellGreeterSyncConfig>(
               "privilege_command",
               [](const toml::table& tbl, ShellGreeterSyncConfig& out, std::string_view, Diagnostics&) {

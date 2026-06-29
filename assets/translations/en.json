@@ -2379,6 +2379,10 @@
           "description": "Default date format for shell UI without its own setting",
           "label": "Date Format"
         },
+        "greeter-sync-auto": {
+          "description": "Automatically sync the greeter whenever wallpaper, colors, or theme mode change",
+          "label": "Auto-Sync Greeter"
+        },
         "greeter-sync-privilege-command": {
           "description": "Replace pkexec/run0 for greeter Sync Now. The apply helper path and staging directory are appended automatically. Example: ghostty -e pkexec",
           "label": "Greeter Sync Privilege Command"
