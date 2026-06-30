@@ -1825,21 +1825,6 @@ bool PipeWireService::applyNodeVolumeImmediate(std::uint32_t id, float volume) {
   volume = std::clamp(volume, 0.0f, 1.5f);
   noteVolumeWritten(nd, volume);
 
-  // Keep WirePlumber policy in sync without blocking the main loop.
-  // `runAsync` is fire-and-forget, so rapid wheel/slider updates remain responsive.
-  const bool isDeviceNode = nd.mediaClass == "Audio/Sink" || nd.mediaClass == "Audio/Source";
-  if (isDeviceNode) {
-    const bool launched = process::runAsync({"wpctl", "set-volume", std::to_string(id), std::format("{:.4f}", volume)});
-    if (launched) {
-      // For devices, keep policy changes in WirePlumber path (pavu/wpctl-visible).
-      if (std::abs(nd.volume - volume) >= 0.0001f) {
-        nd.volume = volume;
-        return true;
-      }
-      return false;
-    }
-  }
-
   // Convert linear volume to cubic (PipeWire native)
   float cubic = volume * volume * volume;
 
@@ -1895,28 +1880,6 @@ void PipeWireService::setNodeMuted(std::uint32_t id, bool muted) {
   auto& nd = *it->second;
   if (nd.proxy == nullptr) {
     return;
-  }
-
-  // Keep WirePlumber policy in sync, but do not block the UI thread.
-  const bool isDeviceNode = nd.mediaClass == "Audio/Sink" || nd.mediaClass == "Audio/Source";
-  if (isDeviceNode) {
-    const bool launched = process::runAsync({"wpctl", "set-mute", std::to_string(id), muted ? "1" : "0"});
-    if (launched) {
-      const bool before = nd.muted;
-      nd.pendingMute = muted;
-      nd.muteWriteGuardUntil = std::chrono::steady_clock::now() + kMuteWriteGuardDuration;
-      recomputeEffectiveMute(nd);
-      scheduleMuteWriteGuard();
-      if (before != nd.muted) {
-        if (id == m_state.defaultSinkId && m_state.defaultSinkId != 0) {
-          emitVolumePreview(false, id, nd.volume);
-        } else if (id == m_state.defaultSourceId && m_state.defaultSourceId != 0) {
-          emitVolumePreview(true, id, nd.volume);
-        }
-        rebuildState();
-      }
-      return;
-    }
   }
 
   // Program streams, and device nodes for immediate local/UI consistency.
