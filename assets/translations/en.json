@@ -1535,19 +1535,23 @@
           "label": "Content Scale"
         },
         "corner-bottom-left": {
-          "description": "Bottom left corner radius for the bar. Enable invert to carve a concave corner, available only when this corner faces away from the screen edge"
+          "description": "Bottom left corner radius for the bar"
         },
         "corner-bottom-right": {
-          "description": "Bottom right corner radius for the bar. Enable invert to carve a concave corner, available only when this corner faces away from the screen edge"
+          "description": "Bottom right corner radius for the bar"
+        },
+        "concave-edge-corners": {
+          "description": "Carve concave notches into two of the bar's corners. Requires Edge Margin to be 0. With Ends Margin at 0, the corners on the bar's inner edge are carved; otherwise the corners touching the screen edge are carved.",
+          "label": "Concave Edge Corners"
         },
         "corner-radius": {
           "description": "Corner radius of the bar"
         },
         "corner-top-left": {
-          "description": "Top left corner radius for the bar. Enable invert to carve a concave corner, available only when this corner faces away from the screen edge"
+          "description": "Top left corner radius for the bar"
         },
         "corner-top-right": {
-          "description": "Top right corner radius for the bar. Enable invert to carve a concave corner, available only when this corner faces away from the screen edge"
+          "description": "Top right corner radius for the bar"
         },
         "dead-zone-command": {
           "description": "Shell command to run on left-click in the bar margin outside widget sections",
@@ -1718,7 +1722,7 @@
           "description": "Background opacity of the dock"
         },
         "concave-edge-corners": {
-          "description": "Carve inward corners on the side that touches the screen edge; requires the margin to the screen edge to be 0",
+          "description": "Carve concave (inward-curving) notches into two of the bar's corners. Requires Edge Margin to be 0. With Ends Margin at 0, the corners on the bar's inner edge are carved; otherwise the corners touching the screen edge are carved.",
           "label": "Concave Edge Corners"
         },
         "corner-bottom-left": {

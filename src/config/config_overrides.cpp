@@ -201,6 +201,9 @@ namespace {
     if (ovr.radiusBottomRight) {
       resolved.radiusBottomRight = *ovr.radiusBottomRight;
     }
+    if (ovr.concaveEdgeCorners) {
+      resolved.concaveEdgeCorners = *ovr.concaveEdgeCorners;
+    }
     if (ovr.marginEnds) {
       resolved.marginEnds = *ovr.marginEnds;
     }

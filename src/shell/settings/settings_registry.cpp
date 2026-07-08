@@ -7,7 +7,6 @@
 #include "core/log.h"
 #include "core/process/process.h"
 #include "i18n/i18n.h"
-#include "shell/bar/bar_corner_shape.h"
 #include "shell/control_center/control_center_panel.h"
 #include "shell/control_center/shortcut_registry.h"
 #include "shell/settings/color_spec_picker.h"
@@ -35,22 +34,13 @@ namespace settings {
     constexpr int kBarMarginMax = 4096;
     constexpr float kBarCornerRadiusMax = 80.0f;
 
-    // Per-corner bar radius slider: shows magnitude (0..max) with an inline invert toggle carrying
-    // the sign (negative = concave). `enabled` reflects whether this corner faces away from the
-    // docked screen edge and can render a meaningful concave notch.
-    [[nodiscard]] SliderSetting barCornerSlider(std::int32_t value, bool enabled) {
+    [[nodiscard]] SliderSetting barCornerSlider(std::int32_t value) {
       SliderSetting s{value, 0.0f, kBarCornerRadiusMax, 1.0f, true};
-      s.invertSlot = SliderSetting::InvertSlot::Toggle;
-      s.invertEnabled = enabled;
       return s;
     }
 
-    // Slider that reserves an empty invert slot so its value box stays column-aligned with sibling
-    // corner sliders in the same group.
     [[nodiscard]] SliderSetting barReservedSlider(double value, double maxValue, double step, bool integer) {
-      SliderSetting s{value, 0.0f, maxValue, step, integer};
-      s.invertSlot = SliderSetting::InvertSlot::Reserve;
-      return s;
+      return SliderSetting{value, 0.0f, maxValue, step, integer};
     }
 
     [[nodiscard]] std::vector<KeyChord>
@@ -2594,7 +2584,6 @@ namespace settings {
           tr("settings.schema.bar.content-padding.description"), path("padding"),
           SliderSetting{bar.padding, 0.0f, 80.0f, 1.0f, true}, "inset"
       ));
-      const BarConcaveCorners barInner = barInnerEdgeCorners(bar.position);
       entries.push_back(makeEntry(
           section, "shape", tr("settings.schema.shared.corner-radius.label"),
           tr("settings.schema.bar.corner-radius.description"), path("radius"),
@@ -2603,23 +2592,35 @@ namespace settings {
       entries.push_back(makeEntry(
           section, "shape", tr("settings.schema.shared.corner-top-left.label"),
           tr("settings.schema.bar.corner-top-left.description"), path("radius_top_left"),
-          barCornerSlider(bar.radiusTopLeft, barInner.topLeft), "rounded corner", true
+          barCornerSlider(bar.radiusTopLeft), "rounded corner", true
       ));
       entries.push_back(makeEntry(
           section, "shape", tr("settings.schema.shared.corner-top-right.label"),
           tr("settings.schema.bar.corner-top-right.description"), path("radius_top_right"),
-          barCornerSlider(bar.radiusTopRight, barInner.topRight), "rounded corner", true
+          barCornerSlider(bar.radiusTopRight), "rounded corner", true
       ));
       entries.push_back(makeEntry(
           section, "shape", tr("settings.schema.shared.corner-bottom-left.label"),
           tr("settings.schema.bar.corner-bottom-left.description"), path("radius_bottom_left"),
-          barCornerSlider(bar.radiusBottomLeft, barInner.bottomLeft), "rounded corner", true
+          barCornerSlider(bar.radiusBottomLeft), "rounded corner", true
       ));
       entries.push_back(makeEntry(
           section, "shape", tr("settings.schema.shared.corner-bottom-right.label"),
           tr("settings.schema.bar.corner-bottom-right.description"), path("radius_bottom_right"),
-          barCornerSlider(bar.radiusBottomRight, barInner.bottomRight), "rounded corner", true
+          barCornerSlider(bar.radiusBottomRight), "rounded corner", true
       ));
+      {
+        auto e = makeEntry(
+            section, "shape", tr("settings.schema.bar.concave-edge-corners.label"),
+            tr("settings.schema.bar.concave-edge-corners.description"), path("concave_edge_corners"),
+            ToggleSetting{bar.concaveEdgeCorners}, "rounded corner carve"
+        );
+        e.visibleWhen = [barName = bar.name](const Config& c) {
+          const BarConfig* b = findBar(c, barName);
+          return b != nullptr && b->marginEdge == 0;
+        };
+        entries.push_back(std::move(e));
+      }
       entries.push_back(makeEntry(
           section, "shape", tr("settings.schema.bar.border.label"), tr("settings.schema.bar.border.description"),
           path("border"), colorSpecPicker(bar.border), "outline color", true
@@ -2918,7 +2919,6 @@ namespace settings {
             tr("settings.schema.bar.content-padding.description"), monitorPath("padding"),
             SliderSetting{ovr.padding.value_or(bar.padding), 0.0f, 80.0f, 1.0f, true}, "inset"
         ));
-        const BarConcaveCorners ovrInner = barInnerEdgeCorners(ovr.position.value_or(bar.position));
         entries.push_back(makeEntry(
             section, "shape", tr("settings.schema.shared.corner-radius.label"),
             tr("settings.schema.bar.corner-radius.description"), monitorPath("radius"),
@@ -2927,25 +2927,40 @@ namespace settings {
         entries.push_back(makeEntry(
             section, "shape", tr("settings.schema.shared.corner-top-left.label"),
             tr("settings.schema.bar.corner-top-left.description"), monitorPath("radius_top_left"),
-            barCornerSlider(ovr.radiusTopLeft.value_or(bar.radiusTopLeft), ovrInner.topLeft), "rounded corner", true
+            barCornerSlider(ovr.radiusTopLeft.value_or(bar.radiusTopLeft)), "rounded corner", true
         ));
         entries.push_back(makeEntry(
             section, "shape", tr("settings.schema.shared.corner-top-right.label"),
             tr("settings.schema.bar.corner-top-right.description"), monitorPath("radius_top_right"),
-            barCornerSlider(ovr.radiusTopRight.value_or(bar.radiusTopRight), ovrInner.topRight), "rounded corner", true
+            barCornerSlider(ovr.radiusTopRight.value_or(bar.radiusTopRight)), "rounded corner", true
         ));
         entries.push_back(makeEntry(
             section, "shape", tr("settings.schema.shared.corner-bottom-left.label"),
             tr("settings.schema.bar.corner-bottom-left.description"), monitorPath("radius_bottom_left"),
-            barCornerSlider(ovr.radiusBottomLeft.value_or(bar.radiusBottomLeft), ovrInner.bottomLeft), "rounded corner",
-            true
+            barCornerSlider(ovr.radiusBottomLeft.value_or(bar.radiusBottomLeft)), "rounded corner", true
         ));
         entries.push_back(makeEntry(
             section, "shape", tr("settings.schema.shared.corner-bottom-right.label"),
             tr("settings.schema.bar.corner-bottom-right.description"), monitorPath("radius_bottom_right"),
-            barCornerSlider(ovr.radiusBottomRight.value_or(bar.radiusBottomRight), ovrInner.bottomRight),
-            "rounded corner", true
+            barCornerSlider(ovr.radiusBottomRight.value_or(bar.radiusBottomRight)), "rounded corner", true
         ));
+        {
+          auto e = makeEntry(
+              section, "shape", tr("settings.schema.bar.concave-edge-corners.label"),
+              tr("settings.schema.bar.concave-edge-corners.description"), monitorPath("concave_edge_corners"),
+              ToggleSetting{ovr.concaveEdgeCorners.value_or(bar.concaveEdgeCorners)}, "rounded corner carve"
+          );
+          e.visibleWhen = [barName = bar.name, match = ovr.match](const Config& c) {
+            const BarConfig* b = findBar(c, barName);
+            if (b == nullptr) {
+              return false;
+            }
+            const BarMonitorOverride* mo = findMonitorOverride(*b, match);
+            const std::int32_t marginEdge = mo && mo->marginEdge.has_value() ? *mo->marginEdge : b->marginEdge;
+            return marginEdge == 0;
+          };
+          entries.push_back(std::move(e));
+        }
         entries.push_back(makeEntry(
             section, "shape", tr("settings.schema.bar.border.label"), tr("settings.schema.bar.border.description"),
             monitorPath("border"), colorSpecPicker(ovr.border, true, tr("common.states.inherit")), "outline color", true

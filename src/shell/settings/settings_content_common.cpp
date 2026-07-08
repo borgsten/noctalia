@@ -80,6 +80,9 @@ namespace settings {
     if (key == "radius_bottom_right") {
       return override->radiusBottomRight.has_value();
     }
+    if (key == "concave_edge_corners") {
+      return override->concaveEdgeCorners.has_value();
+    }
     if (key == "background_opacity") {
       return override->backgroundOpacity.has_value();
     }

@@ -119,6 +119,8 @@ namespace config_export {
         resolved.radiusBottomLeft = *ovr.radiusBottomLeft;
       if (ovr.radiusBottomRight)
         resolved.radiusBottomRight = *ovr.radiusBottomRight;
+      if (ovr.concaveEdgeCorners)
+        resolved.concaveEdgeCorners = *ovr.concaveEdgeCorners;
       if (ovr.marginEnds)
         resolved.marginEnds = *ovr.marginEnds;
       if (ovr.marginEdge)

@@ -5,8 +5,7 @@
 /// The bar's four corners flagged for whether they sit on the bar's inner edge —
 /// the edge facing away from the docked screen edge. Only inner-edge corners can
 /// grow a concave notch into reserved surface space, so this is the single source
-/// of truth for both the renderer (barConcaveShape) and the settings UI (which
-/// corners may be inverted).
+/// of truth for concave-shape mode decisions in barConcaveShape.
 struct BarConcaveCorners {
   bool topLeft = false;
   bool topRight = false;

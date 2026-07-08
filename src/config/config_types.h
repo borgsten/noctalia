@@ -71,6 +71,7 @@ struct BarMonitorOverride {
   std::optional<std::int32_t> radiusTopRight;
   std::optional<std::int32_t> radiusBottomLeft;
   std::optional<std::int32_t> radiusBottomRight;
+  std::optional<bool> concaveEdgeCorners;
   std::optional<std::int32_t> marginEnds;         // inset from each end of the bar along its main axis
   std::optional<std::int32_t> marginEdge;         // distance from the nearest screen edge (floats the bar when > 0)
   std::optional<std::int32_t> marginOppositeEdge; // extra reserved space on the inward side of the bar
@@ -130,6 +131,7 @@ struct BarConfig {
   std::int32_t radiusTopRight = static_cast<std::int32_t>(Style::radiusXl);
   std::int32_t radiusBottomLeft = static_cast<std::int32_t>(Style::radiusXl);
   std::int32_t radiusBottomRight = static_cast<std::int32_t>(Style::radiusXl);
+  bool concaveEdgeCorners = false;
   std::int32_t marginEnds = 180;       // inset from each end of the bar along its main axis
   std::int32_t marginEdge = 10;        // distance from the nearest screen edge (floats the bar when > 0)
   std::int32_t marginOppositeEdge = 0; // extra reserved space on the inward side of the bar

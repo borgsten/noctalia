@@ -159,7 +159,7 @@ std::vector<Workspace> MangoWorkspaceBackend::forOutput(wl_output* output) const
 
   std::vector<Workspace> result;
   result.reserve(state->tags.size());
-  for (const TagInfo& tag : state->tags) {
+  for (const auto& tag : state->tags) {
     result.push_back(makeWorkspace(tag));
   }
   return result;

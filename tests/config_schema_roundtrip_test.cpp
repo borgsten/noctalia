@@ -129,9 +129,8 @@ location = "https://example.invalid/bad"
       }
     }
 
-    const std::string invalid[] = {
-        "", "hello", "me/", "/hello", "me/foo/bar", "me/../hello", "me/foo bar", "../foo", "me/.hidden"
-    };
+    const std::string invalid[] = {"",           "hello",  "me/",       "/hello", "me/foo/bar", "me/../hello",
+                                   "me/foo bar", "../foo", "me/.hidden"};
     for (const auto& id : invalid) {
       if (scripting::isValidPluginId(id)) {
         fail("plugins: accepted invalid plugin id " + id);
@@ -163,6 +162,7 @@ location = "https://example.invalid/bad"
     bar.radiusTopRight = 6;
     bar.radiusBottomLeft = 8;
     bar.radiusBottomRight = 10;
+    bar.concaveEdgeCorners = true;
     bar.marginEnds = 100;
     bar.marginEdge = 5;
     bar.marginOppositeEdge = 12;
@@ -223,6 +223,7 @@ location = "https://example.invalid/bad"
     ovr.radiusTopRight = 2;
     ovr.radiusBottomLeft = 3;
     ovr.radiusBottomRight = 4;
+    ovr.concaveEdgeCorners = false;
     ovr.marginEnds = 70;
     ovr.marginEdge = 9;
     ovr.marginOppositeEdge = 4;
@@ -285,9 +286,8 @@ location = "https://example.invalid/bad"
     c.osd.kinds.lockKeys = false;
     c.osd.kinds.keyboardLayout = false;
     c.backdrop = BackdropConfig{true, 0.8f, 0.2f};
-    c.lockscreen = LockscreenConfig{
-        .blurredDesktop = true, .blurIntensity = 0.6f, .tintIntensity = 0.25f, .monitors = {"DP-1"}
-    };
+    c.lockscreen =
+        LockscreenConfig{.blurredDesktop = true, .blurIntensity = 0.6f, .tintIntensity = 0.25f, .monitors = {"DP-1"}};
     c.system.monitor.enabled = false;
     c.system.monitor.cpuTempSensorPath = "/sys/class/hwmon/hwmon3/temp1_input";
     c.system.monitor.cpuPollSeconds = 5.0f;
@@ -516,6 +516,7 @@ capsule_radius = 12.0
 capsule_thickness = 0.5
 center = [ "clock", "weather" ]
 color = "#0A0B0C"
+concave_edge_corners = true
 contact_shadow = true
 enabled = false
 end = [ "battery" ]
@@ -565,6 +566,7 @@ widget_spacing = 8
     capsule_thickness = 0.25
     center = [ "media" ]
     color = "#E1E2E3"
+    concave_edge_corners = false
     contact_shadow = false
     enabled = true
     end = [ "volume" ]
