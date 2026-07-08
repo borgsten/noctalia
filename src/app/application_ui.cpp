@@ -320,6 +320,7 @@ void Application::initLockScreenAndSession() {
         m_hookManager.fire(HookKind::SessionLocked);
       },
       [this]() {
+        m_idleGraceOverlay.hide();
         m_lockscreenWidgetsController.onLockStateChanged();
         m_hookManager.fire(HookKind::SessionUnlocked);
         requestAllSurfacesRedraw();
