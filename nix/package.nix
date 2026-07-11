@@ -34,6 +34,8 @@
   tomlplusplus,
   wireplumber,
   jemalloc,
+  makeWrapper,
+  git,
   autoAddDriverRunpath,
   cudaSupport ? config.cudaSupport,
 }:
@@ -61,12 +63,18 @@ stdenv.mkDerivation {
     sed -i "s/'-march=native', '-mtune=native',//" meson.build
   '';
 
+  postFixup = ''
+    wrapProgram $out/bin/noctalia \
+      --prefix PATH : ${lib.makeBinPath [ git ]}
+  '';
+
   nativeBuildInputs = [
     meson
     ninja
     pkg-config
     wayland-scanner
     jemalloc
+    makeWrapper
   ]
   ++ lib.optional cudaSupport autoAddDriverRunpath;
 
