@@ -2259,6 +2259,11 @@ namespace settings {
       e.visibleWhen = calendarOn;
       entries.push_back(std::move(e));
     }
+    entries.push_back(makeEntry(
+        SettingsSection::Services, "calendar", tr("settings.schema.services.calendar-week-numbers.label"),
+        tr("settings.schema.services.calendar-week-numbers.description"), {"calendar", "show_week_numbers"},
+        ToggleSetting{cfg.calendar.showWeekNumbers}, "calendar week numbers"
+    ));
 
     entries.push_back(makeEntry(
         SettingsSection::Services, "audio", tr("settings.schema.services.audio-overdrive.label"),

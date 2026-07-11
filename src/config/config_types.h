@@ -1009,6 +1009,7 @@ struct CalendarConfig {
   bool enabled = false;
   std::int32_t refreshMinutes = 15;
   std::vector<Account> accounts;
+  bool showWeekNumbers = false;
 
   bool operator==(const CalendarConfig&) const = default;
 };

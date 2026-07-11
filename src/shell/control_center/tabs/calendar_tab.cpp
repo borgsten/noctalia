@@ -120,6 +120,15 @@ namespace {
     return {startKey, endKey};
   }
 
+  // ISO 8601 week number. The week is identified by its Thursday.
+  int isoWeekNumber(std::chrono::sys_days date) {
+    using namespace std::chrono;
+    const unsigned int isoWeekday = weekday{date}.iso_encoding();
+    const sys_days thursday = date + days{4 - isoWeekday};
+    const sys_days yearStart{year_month_day{thursday}.year() / January / 1};
+    return static_cast<int>((thursday - yearStart).count() / 7) + 1;
+  }
+
   ColorSpec eventColor(const CalendarEvent& event) {
     Color color;
     if (!event.colorHex.empty() && tryParseHexColor(event.colorHex, color)) {
@@ -148,6 +157,7 @@ std::unique_ptr<Flex> CalendarTab::create() {
 
   if (m_config != nullptr) {
     m_showEventsCard = m_config->config().controlCenter.calendarTab.showEventsCard;
+    m_showWeekNumbers = m_config->config().calendar.showWeekNumbers;
   }
 
   auto tab = ui::row({
@@ -594,7 +604,14 @@ void CalendarTab::rebuild() {
       (gridHeightAvailable - weekdayHeight - kCalendarGridGap * scale * 6.0f) / 6.0f, kCalendarCellSizeMin * scale,
       kCalendarCellSizeMax * scale
   );
-  const float dayColumnWidth = std::max(0.0f, (innerWidth - kCalendarGridGap * scale * 6.0f) / 7.0f);
+
+  // When week numbers are shown, treat the grid as 8 equal slots (1 week-number + 7 days) with 7 gaps.
+  const float weekColumnWidth =
+      m_showWeekNumbers ? std::max(0.0f, (innerWidth - kCalendarGridGap * scale * 7.0f) / 8.0f) : 0.0f;
+  const float dayGridWidth =
+      m_showWeekNumbers ? std::max(0.0f, innerWidth - weekColumnWidth - kCalendarGridGap * scale) : innerWidth;
+  const float dayColumnWidth =
+      m_showWeekNumbers ? weekColumnWidth : std::max(0.0f, (innerWidth - kCalendarGridGap * scale * 6.0f) / 7.0f);
   // Reserve a fixed strip under each day number for event indicator dots so all cells stay aligned.
   const float dotDiameter = std::round(5.0f * scale);
   const float dotGap = std::round(2.0f * scale);
@@ -655,7 +672,7 @@ void CalendarTab::rebuild() {
   auto weekdayRow = std::make_unique<GridView>();
   weekdayRow->setColumns(weekdays.size());
   weekdayRow->setColumnGap(kCalendarGridGap * scale);
-  weekdayRow->setSize(innerWidth, weekdayHeight);
+  weekdayRow->setSize(dayGridWidth, weekdayHeight);
   weekdayRow->setMinCellHeight(weekdayHeight);
   for (std::size_t i = 0; i < weekdays.size(); ++i) {
     auto dayCell = std::make_unique<GridTile>();
@@ -676,8 +693,6 @@ void CalendarTab::rebuild() {
 
     weekdayRow->addChild(std::move(dayCell));
   }
-  m_grid->addChild(std::move(weekdayRow));
-
   const int firstWeekdayOffset = (state.displayWeekday - firstDayOfWeek + 7) % 7;
   const int previousMonth = month == 0 ? 11 : month - 1;
   const int previousMonthYear = month == 0 ? year - 1 : year;
@@ -713,7 +728,7 @@ void CalendarTab::rebuild() {
   auto dayGrid = std::make_unique<GridView>();
   dayGrid->setColumns(7);
   dayGrid->setColumnGap(kCalendarGridGap * scale);
-  dayGrid->setSize(innerWidth, 0.0f);
+  dayGrid->setSize(dayGridWidth, 0.0f);
   dayGrid->setMinCellHeight(dayCellHeight);
 
   int day = 1;
@@ -821,10 +836,56 @@ void CalendarTab::rebuild() {
     dayGrid->addChild(std::move(dayTile));
   }
 
-  m_grid->addChild(std::move(dayGrid));
-
   const float gridContentHeight =
       weekdayHeight + kCalendarGridGap * scale + 6.0f * dayCellHeight + 5.0f * kCalendarGridGap * scale;
+
+  auto daysColumn = ui::column({.gap = kCalendarGridGap * scale});
+  daysColumn->addChild(std::move(weekdayRow));
+  daysColumn->addChild(std::move(dayGrid));
+  daysColumn->setSize(dayGridWidth, gridContentHeight);
+
+  if (m_showWeekNumbers) {
+    const auto spacer = [](float w, float h) {
+      auto s = std::make_unique<Flex>();
+      s->setSize(w, h);
+      return s;
+    };
+    const int thursdayColumn = (4 - firstDayOfWeek + 7) % 7;
+    const auto firstThursday =
+        std::chrono::sys_days(std::chrono::year{year} / std::chrono::month{static_cast<unsigned>(month + 1)} / 1)
+        - std::chrono::days{firstWeekdayOffset}
+        + std::chrono::days{thursdayColumn};
+
+    auto weekNumberColumn = ui::column({.gap = kCalendarGridGap * scale});
+    weekNumberColumn->addChild(spacer(weekColumnWidth, weekdayHeight));
+    for (int i = 0; i < 6; ++i) {
+      auto label = ui::column({.align = FlexAlign::Center, .justify = FlexJustify::Center});
+      label->setSize(weekColumnWidth, dayButtonSize);
+      label->addChild(
+          ui::label({
+              .text = std::to_string(isoWeekNumber(firstThursday + std::chrono::days{i * 7})),
+              .fontSize = Style::fontSizeCaption * scale,
+              .fontWeight = FontWeight::Medium,
+              .color = colorSpecFromRole(ColorRole::OnSurface, 0.85f),
+          })
+      );
+      auto weekCell = ui::column({.align = FlexAlign::Center, .justify = FlexJustify::Center, .gap = dotGap});
+      weekCell->setSize(weekColumnWidth, dayCellHeight);
+      weekCell->addChild(std::move(label));
+      weekCell->addChild(spacer(weekColumnWidth, dotStripHeight));
+      weekNumberColumn->addChild(std::move(weekCell));
+    }
+    weekNumberColumn->setSize(weekColumnWidth, gridContentHeight);
+
+    auto gridRow = ui::row({.gap = kCalendarGridGap * scale});
+    gridRow->addChild(std::move(weekNumberColumn));
+    gridRow->addChild(std::move(daysColumn));
+    gridRow->setSize(innerWidth, gridContentHeight);
+    m_grid->addChild(std::move(gridRow));
+  } else {
+    m_grid->addChild(std::move(daysColumn));
+  }
+
   if (m_gridViewport != nullptr) {
     m_gridViewport->setSize(innerWidth, gridContentHeight);
   }

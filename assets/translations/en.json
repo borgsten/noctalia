@@ -2235,6 +2235,10 @@
           "description": "How often to sync calendar events (minutes)",
           "label": "Refresh Interval"
         },
+        "calendar-week-numbers": {
+          "description": "Show ISO 8601 week numbers alongside the calendar grid",
+          "label": "Week Numbers"
+        },
         "day-temperature": {
           "description": "Color temperature during the day (Kelvin)",
           "label": "Day Temperature"

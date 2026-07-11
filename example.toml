@@ -185,6 +185,11 @@ memory_poll_seconds = 2.0           # RAM usage
 network_poll_seconds = 3.0          # network throughput
 disk_poll_seconds = 10.0            # disk usage and swap usage; graph widgets use the fastest poll above
 
+# ── Calendar ──────────────────────────────────────────────────────────────────
+
+[calendar]
+show_week_numbers = false           # show ISO 8601 week numbers in the calendar grid
+
 # ── Weather ───────────────────────────────────────────────────────────────────
 
 [weather]
