@@ -1051,7 +1051,7 @@
         "name-label": "Név",
         "name-placeholder": "Tétlenségi viselkedés",
         "resume-command-label": "Folytatási parancs",
-        "resume-command-placeholder": "noctalia:dpms-on",
+        "resume-command-placeholder": "",
         "summary": "{name} · {seconds} mp",
         "summary-disabled-timeout": "{name} · időtúllépés letiltva",
         "timeout-label": "Időtúllépés másodpercben",
