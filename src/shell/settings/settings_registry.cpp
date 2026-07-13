@@ -2119,7 +2119,7 @@ namespace settings {
       );
       entries.push_back(std::move(e));
     }
-    const SettingVisibility customSchedOn = [](const Config& c) { return c.location.customSchedule; };
+    // Keep both required times editable before activation so the schedule can be valid when enabled.
     {
       auto e = makeEntry(
           SettingsSection::Location, "location", tr("settings.schema.services.sunset.label"),
@@ -2127,7 +2127,6 @@ namespace settings {
           TextSetting{.value = cfg.location.sunset, .placeholder = "20:30", .browseFileExtensions = {}},
           "time schedule sunset"
       );
-      e.visibleWhen = customSchedOn;
       entries.push_back(std::move(e));
     }
     {
@@ -2137,7 +2136,6 @@ namespace settings {
           TextSetting{.value = cfg.location.sunrise, .placeholder = "07:30", .browseFileExtensions = {}},
           "time schedule sunrise"
       );
-      e.visibleWhen = customSchedOn;
       entries.push_back(std::move(e));
     }
 
