@@ -45,13 +45,13 @@ run m=mode: (build m)
     ./build-{{m}}/noctalia
 
 # Build and run the unit tests, enabling their targets when auto mode omits them.
-test m=mode *args: (_ensure-configured m)
+test m=mode: (_ensure-configured m)
     #!/usr/bin/env bash
     set -euo pipefail
     if [[ "{{m}}" == "release" || "{{m}}" == "asan" ]]; then
         meson setup "build-{{m}}" -Dtests=enabled --reconfigure >/dev/null
     fi
-    meson test -C build-{{m}} {{args}}
+    meson test -C build-{{m}}
 
 # Regressions for the GitHub workflow scripts. Pure Python, builds nothing.
 test-workflows:
@@ -79,7 +79,7 @@ format:
     find src tests \( -name '*.cpp' -o -name '*.h' \) -print0 | xargs -0 clang-format -i
     find src tests \( -name '*.cpp' -o -name '*.h' \) -print0 | xargs -0 grep -ZlP '\s+$' | xargs -0 -r sed -i 's/[[:space:]]*$//'
 
-_clang_tidy m=mode *args:
+_clang_tidy m=mode:
     #!/usr/bin/env bash
     set -euo pipefail
     meson compile -C "build-{{m}}" wayland-protocol-headers
@@ -88,7 +88,7 @@ _clang_tidy m=mode *args:
     # diagnostics as ../src/...; the header-filter must match that form (an absolute
     # ^${src_root} anchor never matches, silently dropping every header diagnostic).
     # ../src/ also excludes vendored third_party/*/src/* headers.
-    run-clang-tidy -quiet -use-color -p "build-{{m}}" -j "$(nproc)" -header-filter='\.\./src/.*' {{args}} "^${src_root}/.*"
+    run-clang-tidy -quiet -use-color -p "build-{{m}}" -j "$(nproc)" -header-filter='\.\./src/.*' "^${src_root}/.*"
 
 lint m=mode: (_ensure-configured m)
     just _clang_tidy {{m}} '-warnings-as-errors=*'
