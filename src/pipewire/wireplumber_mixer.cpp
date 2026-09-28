@@ -16,6 +16,33 @@ namespace {
   constexpr guint kReconnectInitialDelayMs = 250;
   constexpr guint kReconnectMaxDelayMs = 5000;
 
+  // WirePlumber 0.5 made wp_core_load_component async; 0.4 only has a synchronous version. On 0.4
+  // the result is wrapped in a GTask so it reaches the same completion callbacks either way.
+  void
+  loadModule(WpCore* core, const gchar* name, GCancellable* cancellable, GAsyncReadyCallback callback, gpointer data) {
+#ifdef NOCTALIA_WIREPLUMBER_0_4
+    GTask* task = g_task_new(core, cancellable, callback, data);
+    GError* err = nullptr;
+    if (wp_core_load_component(core, name, "module", nullptr, &err) == FALSE) {
+      g_task_return_error(task, err);
+    } else {
+      g_task_return_boolean(task, TRUE);
+    }
+    g_object_unref(task);
+#else
+    wp_core_load_component(core, name, "module", nullptr, nullptr, cancellable, callback, data);
+#endif
+  }
+
+  gboolean loadModuleFinish(WpCore* core, GAsyncResult* res, GError** error) {
+#ifdef NOCTALIA_WIREPLUMBER_0_4
+    (void)core;
+    return g_task_propagate_boolean(G_TASK(res), error);
+#else
+    return wp_core_load_component_finish(core, res, error);
+#endif
+  }
+
   // wp_mixer_api_volume_scale_enum: SCALE_LINEAR = 0, SCALE_CUBIC = 1. Cubic makes the
   // "volume" value match what pavucontrol displays, so we pass our perceptual value directly.
   constexpr int kScaleCubic = 1;
@@ -102,7 +129,11 @@ struct WirePlumberMixer::Impl {
 
     disconnectPending = false;
     cancellable = g_cancellable_new();
+#ifdef NOCTALIA_WIREPLUMBER_0_4
+    core = wp_core_new(context, nullptr);
+#else
     core = wp_core_new(context, nullptr, nullptr);
+#endif
     if (core == nullptr) {
       return false;
     }
@@ -120,13 +151,8 @@ struct WirePlumberMixer::Impl {
     wp_core_install_object_manager(core, nodesOm);
 
     kLog.info("connected; loading mixer-api / default-nodes-api modules");
-    wp_core_load_component(
-        core, "libwireplumber-module-mixer-api", "module", nullptr, nullptr, cancellable, &Impl::onMixerLoaded, this
-    );
-    wp_core_load_component(
-        core, "libwireplumber-module-default-nodes-api", "module", nullptr, nullptr, cancellable,
-        &Impl::onDefaultNodesLoaded, this
-    );
+    loadModule(core, "libwireplumber-module-mixer-api", cancellable, &Impl::onMixerLoaded, this);
+    loadModule(core, "libwireplumber-module-default-nodes-api", cancellable, &Impl::onDefaultNodesLoaded, this);
 
     readyWatchdog = g_timeout_source_new_seconds(5);
     g_source_set_callback(readyWatchdog, &Impl::onReadyWatchdog, this, nullptr);
@@ -242,7 +268,7 @@ struct WirePlumberMixer::Impl {
     auto* self = static_cast<Impl*>(data);
     auto* const callbackCore = WP_CORE(source);
     GError* err = nullptr;
-    const gboolean loaded = wp_core_load_component_finish(callbackCore, res, &err);
+    const gboolean loaded = loadModuleFinish(callbackCore, res, &err);
     if (callbackCore != self->core) {
       g_clear_error(&err);
       return;
@@ -364,7 +390,7 @@ struct WirePlumberMixer::Impl {
     auto* self = static_cast<Impl*>(data);
     auto* const callbackCore = WP_CORE(source);
     GError* err = nullptr;
-    const gboolean loaded = wp_core_load_component_finish(callbackCore, res, &err);
+    const gboolean loaded = loadModuleFinish(callbackCore, res, &err);
     if (callbackCore != self->core) {
       g_clear_error(&err);
       return;
