@@ -46,7 +46,7 @@ fi
 
 # libsdbus-c++-dev 2.x and wayland-protocols new enough come from
 # ppa:cppiber/hyprland; noble itself only has sdbus-c++ 1.x
-sudo apt-get install -y --no-install-recommends \
+deps=(
     build-essential g++-14 curl dpkg-dev git meson ninja-build pkg-config \
     libwayland-dev libwayland-bin wayland-protocols libegl-dev libgles-dev \
     libfreetype-dev libfontconfig-dev libcairo2-dev libpango1.0-dev \
@@ -57,6 +57,11 @@ sudo apt-get install -y --no-install-recommends \
     libtomlplusplus-dev libical-dev libjemalloc-dev libwebp-dev libjxl-dev \
     libsndfile1-dev libsystemd-dev libpam0g-dev \
     libsdbus-c++-dev
+)
+
+if ! dpkg-query -W -f='${db:Status-Status}\n' -- "${deps[@]}" 2>/dev/null | grep -qvxF 'installed'; then
+    sudo apt-get install -y --no-install-recommends "${deps[@]}"
+fi
 
 if ! pkg-config --atleast-version=2 sdbus-c++; then
     echo "sdbus-c++ $(pkg-config --modversion sdbus-c++) is too old, add ppa:cppiber/hyprland" >&2
@@ -108,5 +113,8 @@ Homepage: https://github.com/noctalia-dev/noctalia
 Description: A sleek, customizable desktop shell crafted for Wayland.
  Built from the Ubuntu $DEB_SERIES fork at $commit, on top of $tag.
 EOF
+
+mkdir -p "$stage/usr/lib/systemd/user/"
+cp "$src/assets/noctalia.service" "$stage/usr/lib/systemd/user/noctalia.service"
 
 build_deb "$stage" "$out"
