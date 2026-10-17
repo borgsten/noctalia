@@ -4,8 +4,10 @@
 
 #include <optional>
 #include <string>
+#include <type_traits>
 #include <unordered_map>
 #include <utility>
+#include <variant>
 #include <vector>
 
 namespace noctalia::config {
@@ -51,6 +53,30 @@ namespace noctalia::config {
 #pragma GCC diagnostic pop
     }
     return std::nullopt;
+  }
+
+  void insertWidgetSettingValue(toml::table& table, std::string_view key, const WidgetSettingValue& value) {
+    std::visit(
+        [&](const auto& concrete) {
+          using T = std::decay_t<decltype(concrete)>;
+          if constexpr (std::is_same_v<T, std::vector<std::string>>) {
+            toml::array array;
+            for (const auto& item : concrete) {
+              array.push_back(item);
+            }
+            table.insert_or_assign(key, std::move(array));
+          } else if constexpr (std::is_same_v<T, WidgetSettingStringMap>) {
+            toml::table mapTable;
+            for (const auto& [mapKey, mapValue] : concrete) {
+              mapTable.insert_or_assign(mapKey, mapValue);
+            }
+            table.insert_or_assign(key, std::move(mapTable));
+          } else {
+            table.insert_or_assign(key, concrete);
+          }
+        },
+        value
+    );
   }
 
   void seedBuiltinWidgets(Config& config) {

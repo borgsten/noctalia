@@ -62,6 +62,9 @@ int main() {
   expectKnown({"desktop_widgets", "widget_order"});
   expectKnown({"desktop_widgets", "widget", "clock1", "type"});
   expectKnown({"desktop_widgets", "widget", "clock1", "settings", "format"});
+  expectKnown({"lockscreen_widgets", "widget_order"});
+  expectKnown({"lockscreen_widgets", "widget", "clock1", "cx"});
+  expectKnown({"lockscreen_widgets", "widget", "clock1", "settings", "format"});
   expectKnown({"osd", "scale"});
   expectKnown({"notification", "width"});
   expectKnown({"notification", "background_opacity"});
@@ -93,6 +96,7 @@ int main() {
   expectUnknown({"desktop_widgets", "enabeld"});
   expectUnknown({"desktop_widgets", "grid", "cell_szie"});
   expectUnknown({"desktop_widgets", "widget", "clock1", "bogus"});
+  expectUnknown({"lockscreen_widgets", "widget", "clock1", "bogus"});
   expectUnknown({"bar", "default", "thicknesss"});
   expectUnknown({"bar", "default", "monitor", "DP-1", "bogus"});
   expectUnknown({});

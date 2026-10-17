@@ -3,59 +3,20 @@
 #include "config/schema/config_schema.h"
 #include "config/schema/config_sections.h"
 #include "config/schema/engine.h"
+#include "config/widget_config.h"
+#include "config/widgets_placement.h"
 
 #include <algorithm>
 #include <cstdint>
 #include <string>
-#include <string_view>
-#include <type_traits>
 #include <utility>
-#include <variant>
 #include <vector>
 
 namespace config_export {
   namespace schema = noctalia::config::schema;
+  using noctalia::config::insertWidgetSettingValue;
 
   namespace {
-
-    toml::array stringArray(const std::vector<std::string>& values) {
-      toml::array array;
-      for (const auto& value : values) {
-        array.push_back(value);
-      }
-      return array;
-    }
-
-    toml::table stringMapTable(const WidgetSettingStringMap& values) {
-      toml::table table;
-      std::vector<std::string> keys;
-      keys.reserve(values.size());
-      for (const auto& [key, value] : values) {
-        (void)value;
-        keys.push_back(key);
-      }
-      std::ranges::sort(keys);
-      for (const auto& key : keys) {
-        table.insert_or_assign(key, values.at(key));
-      }
-      return table;
-    }
-
-    void insertWidgetSettingValue(toml::table& table, std::string_view key, const WidgetSettingValue& value) {
-      std::visit(
-          [&](const auto& concrete) {
-            using T = std::decay_t<decltype(concrete)>;
-            if constexpr (std::is_same_v<T, std::vector<std::string>>) {
-              table.insert_or_assign(key, stringArray(concrete));
-            } else if constexpr (std::is_same_v<T, WidgetSettingStringMap>) {
-              table.insert_or_assign(key, stringMapTable(concrete));
-            } else {
-              table.insert_or_assign(key, concrete);
-            }
-          },
-          value
-      );
-    }
 
     toml::table widgetConfigTable(const WidgetConfig& widget) {
       toml::table table;
@@ -273,56 +234,7 @@ namespace config_export {
       toml::table table;
       table.insert_or_assign("enabled", enabled);
       table.insert_or_assign("schema_version", static_cast<std::int64_t>(schemaVersion));
-
-      toml::table gridTable;
-      gridTable.insert_or_assign("visible", grid.visible);
-      gridTable.insert_or_assign("cell_size", static_cast<std::int64_t>(grid.cellSize));
-      gridTable.insert_or_assign("major_interval", static_cast<std::int64_t>(grid.majorInterval));
-      table.insert_or_assign("grid", std::move(gridTable));
-
-      if (!widgets.empty()) {
-        toml::array order;
-        toml::table widgetTable;
-        for (const auto& widget : widgets) {
-          if (widget.id.empty()) {
-            continue;
-          }
-          order.push_back(widget.id);
-          toml::table item;
-          item.insert_or_assign("type", widget.type);
-          item.insert_or_assign("output", widget.outputName);
-          item.insert_or_assign("cx", static_cast<double>(widget.cx));
-          item.insert_or_assign("cy", static_cast<double>(widget.cy));
-          item.insert_or_assign("placement_width", static_cast<double>(widget.placementWidth));
-          item.insert_or_assign("placement_height", static_cast<double>(widget.placementHeight));
-          item.insert_or_assign("box_width", static_cast<double>(widget.boxWidth));
-          item.insert_or_assign("box_height", static_cast<double>(widget.boxHeight));
-          item.insert_or_assign("rotation", static_cast<double>(widget.rotationRad));
-          if (widget.flipX) {
-            item.insert_or_assign("flip_x", true);
-          }
-          if (widget.flipY) {
-            item.insert_or_assign("flip_y", true);
-          }
-          item.insert_or_assign("enabled", widget.enabled);
-
-          toml::table settings;
-          std::vector<std::string> keys;
-          keys.reserve(widget.settings.size());
-          for (const auto& [key, value] : widget.settings) {
-            (void)value;
-            keys.push_back(key);
-          }
-          std::ranges::sort(keys);
-          for (const auto& key : keys) {
-            insertWidgetSettingValue(settings, key, widget.settings.at(key));
-          }
-          item.insert_or_assign("settings", std::move(settings));
-          widgetTable.insert_or_assign(widget.id, std::move(item));
-        }
-        table.insert_or_assign("widget_order", std::move(order));
-        table.insert_or_assign("widget", std::move(widgetTable));
-      }
+      noctalia::config::writeWidgetsPlacement(table, grid, widgets, noctalia::config::WidgetsPlacementStyle::Export);
       return table;
     }
 

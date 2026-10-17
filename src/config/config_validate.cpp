@@ -8,6 +8,7 @@
 #include "config/schema/config_sections.h"
 #include "config/schema/engine.h"
 #include "config/widget_config.h"
+#include "config/widgets_placement.h"
 #include "launcher/launcher_provider.h"
 #include "scripting/plugin_id.h"
 #include "scripting/plugin_manager.h"
@@ -23,9 +24,11 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <filesystem>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -517,115 +520,35 @@ namespace noctalia::config {
       }
     }
 
-    void validateDesktopWidgets(
-        const toml::table& root, schema::Diagnostics& diag, scripting::PluginRegistry& pluginRegistry
-    ) {
-      const auto* dw = root["desktop_widgets"].as_table();
-      if (dw == nullptr) {
-        return;
-      }
-      static const std::unordered_set<std::string> kTopLevel = {
-          "enabled", "schema_version", "grid", "widget", "widget_order"
-      };
-      for (const auto& [key, node] : *dw) {
-        (void)node;
-        if (!kTopLevel.contains(std::string(key.str()))) {
-          diag.warn("desktop_widgets." + std::string(key.str()), "unknown setting");
-        }
-      }
-      if (const auto* grid = (*dw)["grid"].as_table()) {
-        static const std::unordered_set<std::string> kGrid = {
-            "visible",
-            "cell_size",
-            "major_interval",
-        };
-        for (const auto& [key, node] : *grid) {
-          (void)node;
-          if (!kGrid.contains(std::string(key.str()))) {
-            diag.warn("desktop_widgets.grid." + std::string(key.str()), "unknown setting");
-          }
-        }
-      }
-      const auto* widgets = (*dw)["widget"].as_table();
-      if (widgets == nullptr) {
-        return;
-      }
-      static const std::unordered_set<std::string> kWidgetKeys = {
-          "id",        "type",       "output",   "cx",     "cy",     "placement_width", "placement_height",
-          "box_width", "box_height", "rotation", "flip_x", "flip_y", "enabled",         "settings",
-      };
-      for (const auto& [id, node] : *widgets) {
-        const auto* tbl = node.as_table();
-        if (tbl == nullptr) {
-          continue;
-        }
-        const std::string idStr(id.str());
-        const std::string base = "desktop_widgets.widget." + idStr;
-        for (const auto& [key, value] : *tbl) {
-          (void)value;
-          if (!kWidgetKeys.contains(std::string(key.str()))) {
-            diag.warn(base + "." + std::string(key.str()), "unknown setting");
-          }
-        }
-        const std::string type = (*tbl)["type"].value<std::string>().value_or("");
-        // A known type contributes at least one type-specific spec; unknown ones
-        // only get the shared background settings, so detect via the type-only list.
-        const bool isBuiltIn =
-            std::ranges::any_of(desktop_settings::desktopWidgetTypeSpecs(), [type](const auto& spec) {
-              return spec.type == type;
-            });
-        const auto pluginEntry = pluginRegistry.resolve(type);
-        const bool isPluginWidget =
-            pluginEntry.has_value() && pluginEntry->entry->kind == scripting::PluginEntryKind::DesktopWidget;
-        if (!isBuiltIn && !isPluginWidget) {
-          diag.warn(base, "unrecognized desktop widget type \"" + type + "\"");
-          continue;
-        }
-        const auto* settingsTbl = (*tbl)["settings"].as_table();
-        if (settingsTbl == nullptr) {
-          continue;
-        }
-        validateSettingsMap(
-            *settingsTbl, desktop_settings::desktopWidgetSettingSchema(type, &pluginRegistry), base + ".settings",
-            /*flagUnknown=*/true, diag, {}, base
-        );
-        if (type == "clock") {
-          if (const auto timezone = (*settingsTbl)["timezone"].value<std::string>();
-              timezone.has_value() && !isValidTimezone(*timezone)) {
-            diag.componentError(
-                base + ".settings.timezone", base, "unknown timezone \"" + *timezone + "\"", "clock.timezone.unknown"
-            );
-          }
-        }
-      }
-    }
+    enum class WidgetsSection : std::uint8_t {
+      Desktop,
+      Lockscreen,
+    };
 
-    void validateLockscreenWidgets(
-        const toml::table& root, schema::Diagnostics& diag, scripting::PluginRegistry& pluginRegistry
+    // [desktop_widgets] and [lockscreen_widgets] share one shape; the lockscreen additionally accepts its
+    // built-in login box type.
+    void validateWidgetsPlacementSection(
+        const toml::table& root, WidgetsSection kind, schema::Diagnostics& diag,
+        scripting::PluginRegistry& pluginRegistry
     ) {
-      const auto* section = root["lockscreen_widgets"].as_table();
+      const bool lockscreen = kind == WidgetsSection::Lockscreen;
+      const std::string_view sectionName = lockscreen ? "lockscreen_widgets" : "desktop_widgets";
+      const auto* section = root[sectionName].as_table();
       if (section == nullptr) {
         return;
       }
-      static const std::unordered_set<std::string> kTopLevel = {
-          "enabled", "schema_version", "grid", "widget", "widget_order"
-      };
+      const std::string sectionPrefix = std::string(sectionName) + ".";
       for (const auto& [key, node] : *section) {
         (void)node;
-        if (!kTopLevel.contains(std::string(key.str()))) {
-          diag.warn("lockscreen_widgets." + std::string(key.str()), "unknown setting");
+        if (!std::ranges::contains(noctalia::config::kWidgetsPlacementSectionKeys, key.str())) {
+          diag.warn(sectionPrefix + std::string(key.str()), "unknown setting");
         }
       }
       if (const auto* grid = (*section)["grid"].as_table()) {
-        static const std::unordered_set<std::string> kGrid = {
-            "visible",
-            "cell_size",
-            "major_interval",
-        };
         for (const auto& [key, node] : *grid) {
           (void)node;
-          if (!kGrid.contains(std::string(key.str()))) {
-            diag.warn("lockscreen_widgets.grid." + std::string(key.str()), "unknown setting");
+          if (!std::ranges::contains(noctalia::config::kWidgetsPlacementGridKeys, key.str())) {
+            diag.warn(sectionPrefix + "grid." + std::string(key.str()), "unknown setting");
           }
         }
       }
@@ -633,20 +556,16 @@ namespace noctalia::config {
       if (widgets == nullptr) {
         return;
       }
-      static const std::unordered_set<std::string> kWidgetKeys = {
-          "id",        "type",       "output",   "cx",     "cy",     "placement_width", "placement_height",
-          "box_width", "box_height", "rotation", "flip_x", "flip_y", "enabled",         "settings",
-      };
       for (const auto& [id, node] : *widgets) {
         const auto* tbl = node.as_table();
         if (tbl == nullptr) {
           continue;
         }
         const std::string idStr(id.str());
-        const std::string base = "lockscreen_widgets.widget." + idStr;
+        const std::string base = sectionPrefix + "widget." + idStr;
         for (const auto& [key, value] : *tbl) {
           (void)value;
-          if (!kWidgetKeys.contains(std::string(key.str()))) {
+          if (!noctalia::config::isPlacedWidgetKey(key.str())) {
             diag.warn(base + "." + std::string(key.str()), "unknown setting");
           }
         }
@@ -658,8 +577,12 @@ namespace noctalia::config {
         const auto pluginEntry = pluginRegistry.resolve(type);
         const bool isPluginWidget =
             pluginEntry.has_value() && pluginEntry->entry->kind == scripting::PluginEntryKind::DesktopWidget;
-        if (type != lockscreen_login_box::kWidgetType && !isBuiltIn && !isPluginWidget) {
-          diag.warn(base, "unrecognized lockscreen widget type \"" + type + "\"");
+        const bool isLoginBox = lockscreen && type == lockscreen_login_box::kWidgetType;
+        if (!isLoginBox && !isBuiltIn && !isPluginWidget) {
+          diag.warn(
+              base,
+              std::string("unrecognized ") + (lockscreen ? "lockscreen" : "desktop") + " widget type \"" + type + "\""
+          );
           continue;
         }
         const auto* settingsTbl = (*tbl)["settings"].as_table();
@@ -761,8 +684,8 @@ namespace noctalia::config {
       validateBars(merged, diag);
       validateBarWidgets(merged, diag, pluginRegistry);
       validatePluginSettings(merged, diag, pluginRegistry);
-      validateDesktopWidgets(merged, diag, pluginRegistry);
-      validateLockscreenWidgets(merged, diag, pluginRegistry);
+      validateWidgetsPlacementSection(merged, WidgetsSection::Desktop, diag, pluginRegistry);
+      validateWidgetsPlacementSection(merged, WidgetsSection::Lockscreen, diag, pluginRegistry);
       validateIncludeShape(merged, diag);
 
       // Unknown top-level keys.

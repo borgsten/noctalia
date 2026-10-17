@@ -5,6 +5,7 @@
 #include "config/schema/diagnostics.h"
 #include "config/schema/engine.h"
 #include "config/schema/ranges.h"
+#include "config/widgets_placement.h"
 #include "core/input/key_chord.h"
 #include "notification/notification_filter.h"
 #include "scripting/plugin_id.h"
@@ -1873,7 +1874,9 @@ namespace noctalia::config::schema {
       return root;
     }
 
-    bool isKnownDesktopWidgetPath(const std::vector<std::string>& path) {
+    // Paths under [desktop_widgets] / [lockscreen_widgets] that the section schema does not cover: the
+    // widget order and the per-widget tables.
+    bool isKnownPlacedWidgetPath(const std::vector<std::string>& path) {
       if (path.size() == 2 && path[1] == "widget_order") {
         return true;
       }
@@ -1883,11 +1886,7 @@ namespace noctalia::config::schema {
       if (path.size() <= 3) {
         return true;
       }
-      static const std::unordered_set<std::string> kWidgetKeys = {
-          "id",        "type",       "output",   "cx",     "cy",     "placement_width", "placement_height",
-          "box_width", "box_height", "rotation", "flip_x", "flip_y", "enabled",         "settings",
-      };
-      if (!kWidgetKeys.contains(path[3])) {
+      if (!isPlacedWidgetKey(path[3])) {
         return false;
       }
       return path.size() == 4 || path[3] == "settings";
@@ -1923,7 +1922,7 @@ namespace noctalia::config::schema {
       return unknown.empty();
     }
 
-    if (section == "desktop_widgets" && isKnownDesktopWidgetPath(path)) {
+    if ((section == "desktop_widgets" || section == "lockscreen_widgets") && isKnownPlacedWidgetPath(path)) {
       return true;
     }
 

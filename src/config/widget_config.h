@@ -11,6 +11,7 @@ namespace noctalia::config {
   void seedBuiltinWidgets(Config& config);
 
   [[nodiscard]] std::optional<WidgetSettingValue> readWidgetSettingValue(const toml::node& node);
+  void insertWidgetSettingValue(toml::table& table, std::string_view key, const WidgetSettingValue& value);
 
   // Resolves one `[widget.<name>]` table against the config parsed so far. This
   // is the canonical bar-widget instance resolution used by runtime loading and
