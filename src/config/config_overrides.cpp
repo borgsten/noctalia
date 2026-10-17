@@ -4,6 +4,7 @@
 #include "config/config_validate.h"
 #include "config/schema/ranges.h"
 #include "config/widget_config.h"
+#include "config/widgets_placement.h"
 #include "core/files/resource_paths.h"
 #include "core/input/key_chord.h"
 #include "core/log.h"
@@ -428,67 +429,6 @@ namespace {
     }
     auto [it, _] = parent.insert_or_assign(key, toml::table{});
     return it->second.as_table();
-  }
-
-  void insertWidgetSetting(toml::table& table, const std::string& key, const WidgetSettingValue& value) {
-    std::visit(
-        [&](const auto& concrete) {
-          using T = std::decay_t<decltype(concrete)>;
-          if constexpr (std::is_same_v<T, std::vector<std::string>>) {
-            toml::array array;
-            for (const auto& item : concrete) {
-              array.push_back(item);
-            }
-            table.insert_or_assign(key, std::move(array));
-          } else if constexpr (std::is_same_v<T, WidgetSettingStringMap>) {
-            toml::table mapTable;
-            std::vector<std::string> mapKeys;
-            mapKeys.reserve(concrete.size());
-            for (const auto& [mapKey, mapValue] : concrete) {
-              (void)mapValue;
-              mapKeys.push_back(mapKey);
-            }
-            std::ranges::sort(mapKeys);
-            for (const auto& mapKey : mapKeys) {
-              mapTable.insert_or_assign(mapKey, concrete.at(mapKey));
-            }
-            table.insert_or_assign(key, std::move(mapTable));
-          } else {
-            table.insert_or_assign(key, concrete);
-          }
-        },
-        value
-    );
-  }
-
-  toml::table desktopWidgetTable(const DesktopWidgetState& widget) {
-    toml::table widgetTable;
-    widgetTable.insert_or_assign("type", widget.type);
-    widgetTable.insert_or_assign("output", widget.outputName);
-    widgetTable.insert_or_assign("cx", static_cast<double>(widget.cx));
-    widgetTable.insert_or_assign("cy", static_cast<double>(widget.cy));
-    widgetTable.insert_or_assign("placement_width", static_cast<double>(widget.placementWidth));
-    widgetTable.insert_or_assign("placement_height", static_cast<double>(widget.placementHeight));
-    widgetTable.insert_or_assign("box_width", static_cast<double>(widget.boxWidth));
-    widgetTable.insert_or_assign("box_height", static_cast<double>(widget.boxHeight));
-    widgetTable.insert_or_assign("rotation", static_cast<double>(widget.rotationRad));
-    if (widget.flipX) {
-      widgetTable.insert_or_assign("flip_x", true);
-    }
-    if (widget.flipY) {
-      widgetTable.insert_or_assign("flip_y", true);
-    }
-    if (!widget.enabled) {
-      widgetTable.insert_or_assign("enabled", false);
-    }
-    if (!widget.settings.empty()) {
-      toml::table settingsTable;
-      for (const auto& [key, value] : widget.settings) {
-        insertWidgetSetting(settingsTable, key, value);
-      }
-      widgetTable.insert_or_assign("settings", std::move(settingsTable));
-    }
-    return widgetTable;
   }
 
   void insertOverrideValue(toml::table& table, std::string_view key, const ConfigOverrideValue& value) {
@@ -1190,32 +1130,6 @@ void ConfigService::setPluginsAutoUpdate(PluginAutoUpdateMode mode) {
   fireReloadCallbacks();
 }
 
-namespace {
-
-  void writeWidgetsPlacementToTable(
-      toml::table& sectionTbl, const DesktopWidgetsGridState& grid, const std::vector<DesktopWidgetState>& widgets
-  ) {
-    toml::table gridTable;
-    gridTable.insert_or_assign("visible", grid.visible);
-    gridTable.insert_or_assign("cell_size", static_cast<std::int64_t>(grid.cellSize));
-    gridTable.insert_or_assign("major_interval", static_cast<std::int64_t>(grid.majorInterval));
-    sectionTbl.insert_or_assign("grid", std::move(gridTable));
-
-    toml::table widgetTable;
-    toml::array widgetOrder;
-    for (const auto& widget : widgets) {
-      if (widget.id.empty() || widget.type.empty()) {
-        continue;
-      }
-      widgetTable.insert_or_assign(widget.id, desktopWidgetTable(widget));
-      widgetOrder.push_back(widget.id);
-    }
-    sectionTbl.insert_or_assign("widget", std::move(widgetTable));
-    sectionTbl.insert_or_assign("widget_order", std::move(widgetOrder));
-  }
-
-} // namespace
-
 bool ConfigService::setDesktopWidgetsState(const DesktopWidgetsConfig& desktopWidgets) {
   if (m_overridesPath.empty()) {
     return false;
@@ -1228,7 +1142,10 @@ bool ConfigService::setDesktopWidgetsState(const DesktopWidgetsConfig& desktopWi
   }
 
   desktopWidgetsTbl->insert_or_assign("schema_version", static_cast<std::int64_t>(desktopWidgets.schemaVersion));
-  writeWidgetsPlacementToTable(*desktopWidgetsTbl, desktopWidgets.grid, desktopWidgets.widgets);
+  noctalia::config::writeWidgetsPlacement(
+      *desktopWidgetsTbl, desktopWidgets.grid, desktopWidgets.widgets,
+      noctalia::config::WidgetsPlacementStyle::Overrides
+  );
 
   return commitOverrideTable(std::move(next), nullptr);
 }
@@ -1246,7 +1163,9 @@ bool ConfigService::setLockscreenWidgetsState(const LockscreenWidgetsConfig& loc
 
   sectionTbl->insert_or_assign("enabled", lockscreenWidgets.enabled);
   sectionTbl->insert_or_assign("schema_version", static_cast<std::int64_t>(lockscreenWidgets.schemaVersion));
-  writeWidgetsPlacementToTable(*sectionTbl, lockscreenWidgets.grid, lockscreenWidgets.widgets);
+  noctalia::config::writeWidgetsPlacement(
+      *sectionTbl, lockscreenWidgets.grid, lockscreenWidgets.widgets, noctalia::config::WidgetsPlacementStyle::Overrides
+  );
 
   return commitOverrideTable(std::move(next), nullptr);
 }
