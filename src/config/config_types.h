@@ -765,13 +765,13 @@ struct DesktopWidgetsGridState {
 };
 
 enum class DesktopWidgetPositionMode : std::uint8_t {
-  // cx/cy are the widget's center in logical px.
+  // cx/cy place the widget's anchor point in logical px.
   Absolute,
-  // cx/cy are fractions of the output's logical size, placing the widget's anchor point.
+  // cx/cy place the widget's anchor point as fractions of the output's logical size.
   Relative,
 };
 
-// Point of the widget's rotated bounding box that a relative position places.
+// Point of the widget's rotated bounding box that cx/cy place.
 enum class DesktopWidgetAnchor : std::uint8_t {
   TopLeft,
   Top,

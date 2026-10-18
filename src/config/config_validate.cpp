@@ -534,8 +534,6 @@ namespace noctalia::config {
       if (const auto anchor = widget["anchor"].value<std::string>()) {
         if (!noctalia::config::parseAnchor(*anchor).has_value()) {
           diag.warn(base + ".anchor", "unknown anchor \"" + *anchor + "\"");
-        } else if (!relative) {
-          diag.warn(base + ".anchor", "anchor only applies to widgets with position = \"relative\"");
         }
       }
       if (!relative) {

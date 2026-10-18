@@ -165,7 +165,8 @@ private:
   void prepareFrame(OverlaySurface& surface, bool needsUpdate, bool needsLayout);
   void releaseWallpaperPreview(OverlaySurface& surface);
   void updateWallpaperPreview(OverlaySurface& surface);
-  void applyViewState(EditorWidgetView& view, const DesktopWidgetState& state, bool refreshContent);
+  void
+  applyViewState(OverlaySurface& surface, EditorWidgetView& view, const DesktopWidgetState& state, bool refreshContent);
   void updateViewTransforms(const std::string* relayoutWidgetId = nullptr);
   // Live resize preview: grow the box (handles/outline) and scale the content on the GPU instead
   // of re-laying out the dragged widget every pointer move. finishDrag() does the crisp re-fit.
@@ -178,6 +179,19 @@ private:
   void bringSelectedWidgetToFront();
   void flipSelectedWidgetHorizontal();
   void flipSelectedWidgetVertical();
+  void toggleSelectedWidgetShared(const std::string& outputName);
+  void toggleSelectedWidgetRelative(const std::string& outputName);
+  void setSelectedWidgetAnchor(const std::string& outputName, DesktopWidgetAnchor anchor);
+  void setOutputLayout(const std::string& outputName, DesktopWidgetOutputLayout layout);
+  // Binding the first widget to an `auto` output that shows the shared layout would hide the shared
+  // layout there; call before binding so the editor keeps the output showing it.
+  void keepSharedLayoutShown(const std::string& outputName);
+  // Applies `change` to the selected widgets shown on `outputName`, then re-stores each position so the
+  // widget stays where it is drawn there. `change` gets the output size.
+  void changeSelectedPositionForm(
+      const std::string& outputName,
+      const std::function<void(DesktopWidgetState&, float outputWidth, float outputHeight)>& change
+  );
   void cloneSelectedWidgets();
   void copySelectedWidgets();
   void pasteWidgets();
@@ -194,7 +208,7 @@ private:
   );
   void startLassoDrag(const std::string& outputName);
   void finishLassoSelection();
-  void populateGroupInitialStates(const std::string& anchorWidgetId);
+  void populateGroupInitialStates(OverlaySurface& surface, const std::string& anchorWidgetId);
   void updateDrag();
   void finishDrag();
   void updateLassoVisual(OverlaySurface& surface);
@@ -203,10 +217,8 @@ private:
   [[nodiscard]] std::optional<LayerPopupParentContext> overlayPopupParentContext(const OverlaySurface& surface) const;
   [[nodiscard]] OverlaySurface* findSurface(const std::string& outputName);
   [[nodiscard]] OverlaySurface* findSurfaceForWidget(const std::string& widgetId);
-  [[nodiscard]] EditorWidgetView* findView(const std::string& id);
   [[nodiscard]] DesktopWidgetState* findWidgetState(const std::string& id);
   [[nodiscard]] const DesktopWidgetState* findWidgetState(const std::string& id) const;
-  [[nodiscard]] std::string effectiveOutputName(const DesktopWidgetState& state) const;
   [[nodiscard]] bool shouldSnap() const;
   [[nodiscard]] float widgetContentScale() const;
   [[nodiscard]] std::string nextWidgetId() const;

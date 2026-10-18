@@ -59,7 +59,15 @@ namespace {
     absolute.cx = 300.0F;
     absolute.cy = 400.0F;
     const auto passthrough = resolveCenter(absolute, kOutW, kOutH, kW, kH);
-    expect(passthrough.cx == 300.0F && passthrough.cy == 400.0F, "absolute positions pass through");
+    expect(passthrough.cx == 300.0F && passthrough.cy == 400.0F, "absolute center positions pass through");
+
+    DesktopWidgetState absoluteTopRight = absolute;
+    absoluteTopRight.anchor = DesktopWidgetAnchor::TopRight;
+    const auto anchored = resolveCenter(absoluteTopRight, kOutW, kOutH, kW, kH);
+    expect(
+        near(anchored.cx, 300.0F - kW * 0.5F) && near(anchored.cy, 400.0F + kH * 0.5F),
+        "an absolute position places the anchor point"
+    );
 
     DesktopWidgetState topRight;
     topRight.positionMode = DesktopWidgetPositionMode::Relative;
@@ -74,20 +82,26 @@ namespace {
         DesktopWidgetAnchor::Left,       DesktopWidgetAnchor::Center, DesktopWidgetAnchor::Right,
         DesktopWidgetAnchor::BottomLeft, DesktopWidgetAnchor::Bottom, DesktopWidgetAnchor::BottomRight,
     };
-    for (const auto anchor : kAnchors) {
-      for (const float rotation : {0.0F, 0.5236F, 1.5708F}) {
-        DesktopWidgetState state;
-        state.positionMode = DesktopWidgetPositionMode::Relative;
-        state.anchor = anchor;
-        state.rotationRad = rotation;
-        state.cx = 0.3F;
-        state.cy = 0.7F;
-        const auto center = resolveCenter(state, kOutW, kOutH, kW, kH);
-        DesktopWidgetState stored = state;
-        stored.cx = 0.0F;
-        stored.cy = 0.0F;
-        storeCenter(stored, kOutW, kOutH, kW, kH, center.cx, center.cy);
-        expect(near(stored.cx, state.cx) && near(stored.cy, state.cy), "storeCenter inverts resolveCenter");
+    for (const auto mode : {DesktopWidgetPositionMode::Absolute, DesktopWidgetPositionMode::Relative}) {
+      for (const auto anchor : kAnchors) {
+        for (const float rotation : {0.0F, 0.5236F, 1.5708F}) {
+          DesktopWidgetState state;
+          state.positionMode = mode;
+          state.anchor = anchor;
+          state.rotationRad = rotation;
+          state.cx = mode == DesktopWidgetPositionMode::Relative ? 0.3F : 576.0F;
+          state.cy = mode == DesktopWidgetPositionMode::Relative ? 0.7F : 756.0F;
+          const auto center = resolveCenter(state, kOutW, kOutH, kW, kH);
+          DesktopWidgetState stored = state;
+          stored.cx = 0.0F;
+          stored.cy = 0.0F;
+          storeCenter(stored, kOutW, kOutH, kW, kH, center.cx, center.cy);
+          const float tolerance = mode == DesktopWidgetPositionMode::Relative ? 1e-4F : 1e-2F;
+          expect(
+              std::abs(stored.cx - state.cx) < tolerance && std::abs(stored.cy - state.cy) < tolerance,
+              "storeCenter inverts resolveCenter"
+          );
+        }
       }
     }
   }
@@ -269,7 +283,7 @@ anchor = "top"
     expect(warned("desktop_widgets.widget.clock.position"), "unknown position warns");
     expect(warned("desktop_widgets.widget.anchored.anchor"), "unknown anchor warns");
     expect(warned("desktop_widgets.widget.anchored.cx"), "relative position outside 0..1 warns");
-    expect(warned("desktop_widgets.widget.absolute.anchor"), "anchor on an absolute widget warns");
+    expect(!warned("desktop_widgets.widget.absolute.anchor"), "an anchor on an absolute widget is valid");
   }
 
 } // namespace

@@ -539,19 +539,39 @@
     "editor": {
       "actions": {
         "add": "Add",
+        "all-monitors": "Show on All Monitors",
         "clone": "Duplicate (Ctrl+C, Ctrl+V to copy/paste)",
         "done": "Done",
         "flip-horizontal": "Flip Horizontal",
         "flip-vertical": "Flip Vertical",
         "hide": "Hide",
+        "relative": "Relative Position",
         "settings": "Settings",
         "show": "Show",
         "stack-back": "Stack Behind",
         "stack-front": "Stack In Front",
         "trash": "Delete"
       },
+      "anchor": {
+        "bottom": "Bottom",
+        "bottom-left": "Bottom Left",
+        "bottom-right": "Bottom Right",
+        "center": "Center",
+        "left": "Left",
+        "right": "Right",
+        "top": "Top",
+        "top-left": "Top Left",
+        "top-right": "Top Right"
+      },
       "dialogs": {
         "select-sticker-image": "Select Sticker Image"
+      },
+      "layout": {
+        "auto-own": "Auto (Own)",
+        "auto-shared": "Auto (Shared)",
+        "label": "Layout",
+        "own": "Own",
+        "shared": "Shared"
       },
       "settings": {
         "album-art-background": "Album Art Background",

@@ -935,9 +935,21 @@ void DesktopWidgetsEditor::applySettingChange(const std::string& key, WidgetSett
       }
     }
 
-    OverlaySurface* surface = findSurfaceForWidget(m_selectedWidgetId);
+    // The inspector is on every surface; prefer the one being edited from when it shows the widget.
+    OverlaySurface* surface = findSurface(m_currentEventOutputName);
+    if (surface == nullptr || !surface->views.contains(m_selectedWidgetId)) {
+      surface = findSurfaceForWidget(m_selectedWidgetId);
+    }
     if (surface == nullptr) {
       return;
+    }
+    // A shared widget also has views on other surfaces. Rebuild those scenes, but not this one: that
+    // would also rebuild the inspector being typed in.
+    for (auto& overlay : m_surfaces) {
+      if (overlay.get() != surface && overlay->surface != nullptr && overlay->views.contains(m_selectedWidgetId)) {
+        overlay->sceneRebuildRequested = true;
+        overlay->surface->requestLayout();
+      }
     }
     auto viewIt = surface->views.find(m_selectedWidgetId);
     if (viewIt == surface->views.end()) {
@@ -955,7 +967,7 @@ void DesktopWidgetsEditor::applySettingChange(const std::string& key, WidgetSett
     Renderer& renderer = surface->surface->renderTarget().renderer();
 
     if (view.widget != nullptr && view.widget->applySetting(key, value, state->settings, renderer)) {
-      applyViewState(view, *state, true);
+      applyViewState(*surface, view, *state, true);
       updateSelectionVisuals(*surface);
       if (rebuildInspector) {
         requestLayout();
@@ -1017,7 +1029,7 @@ void DesktopWidgetsEditor::applySettingChange(const std::string& key, WidgetSett
     view.transformNode->addChild(std::move(widgetRoot));
     view.widget = std::move(newWidget);
 
-    applyViewState(view, *state, false);
+    applyViewState(*surface, view, *state, false);
     if ((state->type == "audio_visualizer" || state->type == "fancy_audio_visualizer") && surface->surface != nullptr) {
       surface->surface->requestFrameTick();
     }

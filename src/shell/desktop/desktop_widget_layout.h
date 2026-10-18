@@ -164,22 +164,23 @@ namespace desktop_widgets {
     return {};
   }
 
-  // The widget's center in logical px on an output of the given size. Absolute positions are already
-  // centers; relative ones place the anchor point of the rotated AABB at a fraction of the output.
+  // The widget's center in logical px on an output of the given size. The position places the anchor
+  // point of the rotated AABB: in logical px for absolute widgets, as a fraction of the output for
+  // relative ones.
   inline WidgetTransformClampResult resolveCenter(
       const DesktopWidgetState& state, float outputWidth, float outputHeight, float intrinsicWidth,
       float intrinsicHeight
   ) {
-    if (!isRelativeWidget(state)) {
-      return {state.cx, state.cy};
+    const bool relative = isRelativeWidget(state);
+    const float anchorX = relative ? state.cx * outputWidth : state.cx;
+    const float anchorY = relative ? state.cy * outputHeight : state.cy;
+    if (state.anchor == DesktopWidgetAnchor::Center) {
+      return {anchorX, anchorY};
     }
     const WidgetTransformBounds bounds =
         computeWidgetTransformBounds(0.0F, 0.0F, intrinsicWidth, intrinsicHeight, 1.0F, state.rotationRad);
     const AnchorFactors factors = anchorFactors(state.anchor);
-    return {
-        state.cx * outputWidth - factors.x * bounds.aabbWidth,
-        state.cy * outputHeight - factors.y * bounds.aabbHeight,
-    };
+    return {anchorX - factors.x * bounds.aabbWidth, anchorY - factors.y * bounds.aabbHeight};
   }
 
   // Inverse of resolveCenter: stores a center in logical px into the state's own position form.
@@ -187,16 +188,22 @@ namespace desktop_widgets {
       DesktopWidgetState& state, float outputWidth, float outputHeight, float intrinsicWidth, float intrinsicHeight,
       float centerX, float centerY
   ) {
+    float anchorX = centerX;
+    float anchorY = centerY;
+    if (state.anchor != DesktopWidgetAnchor::Center) {
+      const WidgetTransformBounds bounds =
+          computeWidgetTransformBounds(0.0F, 0.0F, intrinsicWidth, intrinsicHeight, 1.0F, state.rotationRad);
+      const AnchorFactors factors = anchorFactors(state.anchor);
+      anchorX += factors.x * bounds.aabbWidth;
+      anchorY += factors.y * bounds.aabbHeight;
+    }
     if (!isRelativeWidget(state)) {
-      state.cx = centerX;
-      state.cy = centerY;
+      state.cx = anchorX;
+      state.cy = anchorY;
       return;
     }
-    const WidgetTransformBounds bounds =
-        computeWidgetTransformBounds(0.0F, 0.0F, intrinsicWidth, intrinsicHeight, 1.0F, state.rotationRad);
-    const AnchorFactors factors = anchorFactors(state.anchor);
-    state.cx = (centerX + factors.x * bounds.aabbWidth) / std::max(1.0F, outputWidth);
-    state.cy = (centerY + factors.y * bounds.aabbHeight) / std::max(1.0F, outputHeight);
+    state.cx = anchorX / std::max(1.0F, outputWidth);
+    state.cy = anchorY / std::max(1.0F, outputHeight);
   }
 
   // Single source of truth for desktop widget coordinate clamping. Edit mode, default mode, and
