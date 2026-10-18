@@ -277,6 +277,8 @@ private:
   std::string m_setupMarkerPath;
   toml::table m_overridesTable;
   toml::table m_persistedOverridesTable;
+  // [desktop_widgets] and [lockscreen_widgets] as merged from every layer below the overrides.
+  toml::table m_lowerLayerWidgetSections;
   std::unordered_set<std::string> m_configFileBarNames;
   std::unordered_map<std::string, std::unordered_set<std::string>> m_configFileMonitorOverrideNames;
   std::unordered_set<std::string> m_configFileDockMonitorOverrideNames;

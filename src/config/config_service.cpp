@@ -11,6 +11,7 @@
 #include "config/schema/engine.h"
 #include "config/schema/ranges.h"
 #include "config/widget_config.h"
+#include "config/widgets_placement.h"
 #include "core/build_info.h"
 #include "core/deferred_call.h"
 #include "core/log.h"
@@ -280,6 +281,12 @@ namespace {
     if (auto enabled = widgetTable["enabled"].value<bool>()) {
       widget.enabled = *enabled;
     }
+    if (auto position = widgetTable["position"].value<std::string>()) {
+      widget.positionMode = noctalia::config::parsePositionMode(*position).value_or(widget.positionMode);
+    }
+    if (auto anchor = widgetTable["anchor"].value<std::string>()) {
+      widget.anchor = noctalia::config::parseAnchor(*anchor).value_or(widget.anchor);
+    }
     if (const auto* settingsTable = widgetTable["settings"].as_table()) {
       for (const auto& [key, value] : *settingsTable) {
         if (auto parsed = noctalia::config::readWidgetSettingValue(value); parsed.has_value()) {
@@ -293,8 +300,21 @@ namespace {
 
   void parseWidgetsPlacementSection(
       const toml::table& sectionTbl, DesktopWidgetsGridState& grid, std::vector<DesktopWidgetState>& widgets,
-      std::string_view colorSection
+      std::unordered_map<std::string, DesktopWidgetOutputLayout>& outputLayouts, std::string_view colorSection
   ) {
+    if (const auto* outputTable = sectionTbl["output"].as_table()) {
+      for (const auto& [outputName, entryNode] : *outputTable) {
+        const auto* entry = entryNode.as_table();
+        if (entry == nullptr) {
+          continue;
+        }
+        if (auto layoutName = (*entry)["layout"].value<std::string>()) {
+          if (auto layout = noctalia::config::parseOutputLayout(*layoutName)) {
+            outputLayouts.insert_or_assign(std::string(outputName.str()), *layout);
+          }
+        }
+      }
+    }
     if (const auto* gridTable = sectionTbl["grid"].as_table()) {
       if (auto visible = (*gridTable)["visible"].value<bool>()) {
         grid.visible = *visible;
@@ -1569,6 +1589,13 @@ void ConfigService::loadAll() {
     }
   }
 
+  m_lowerLayerWidgetSections.clear();
+  for (const std::string_view section : {"desktop_widgets", "lockscreen_widgets"}) {
+    if (const auto* table = merged[section].as_table()) {
+      m_lowerLayerWidgetSections.insert_or_assign(section, *table);
+    }
+  }
+
   // Apply the app-writable overrides overlay last; sidecar wins. Compatibility
   // normalization must see the final effective values to preserve overlay intent.
   deepMerge(merged, effectiveOverrides);
@@ -1879,7 +1906,9 @@ void ConfigService::parseConfigTable(
     if (auto schemaVersion = (*desktopWidgetsTbl)["schema_version"].value<int64_t>()) {
       desktopWidgets.schemaVersion = static_cast<std::int32_t>(*schemaVersion);
     }
-    parseWidgetsPlacementSection(*desktopWidgetsTbl, desktopWidgets.grid, desktopWidgets.widgets, "desktop_widgets");
+    parseWidgetsPlacementSection(
+        *desktopWidgetsTbl, desktopWidgets.grid, desktopWidgets.widgets, desktopWidgets.outputLayouts, "desktop_widgets"
+    );
   }
 
   // Parse [lockscreen_widgets]
@@ -1892,7 +1921,8 @@ void ConfigService::parseConfigTable(
       lockscreenWidgets.schemaVersion = static_cast<std::int32_t>(*schemaVersion);
     }
     parseWidgetsPlacementSection(
-        *lockscreenWidgetsTbl, lockscreenWidgets.grid, lockscreenWidgets.widgets, "lockscreen_widgets"
+        *lockscreenWidgetsTbl, lockscreenWidgets.grid, lockscreenWidgets.widgets, lockscreenWidgets.outputLayouts,
+        "lockscreen_widgets"
     );
   }
 

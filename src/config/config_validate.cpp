@@ -547,10 +547,9 @@ namespace noctalia::config {
       };
 
       static constexpr std::array kSection = {
-          Expected{"enabled", isBool, "a boolean"},
-          Expected{"schema_version", isInt, "an integer"},
-          Expected{"grid", isTable, "a table"},
-          Expected{"widget", isTable, "a table"},
+          Expected{"enabled", isBool, "a boolean"}, Expected{"schema_version", isInt, "an integer"},
+          Expected{"grid", isTable, "a table"},     Expected{"widget", isTable, "a table"},
+          Expected{"output", isTable, "a table"},
       };
       check(section, prefix, kSection);
       if (const toml::node* order = section.get("widget_order"); order != nullptr) {
@@ -567,6 +566,15 @@ namespace noctalia::config {
             Expected{"major_interval", isInt, "an integer"},
         };
         check(*grid, schema::joinPath(prefix, "grid"), kGrid);
+      }
+      if (const auto* outputs = section["output"].as_table()) {
+        static constexpr std::array kOutput = {Expected{"layout", isString, "a string"}};
+        const std::string outputBase = schema::joinPath(prefix, "output");
+        for (const auto& [name, node] : *outputs) {
+          if (const auto* tbl = node.as_table()) {
+            check(*tbl, schema::joinPath(outputBase, name.str()), kOutput);
+          }
+        }
       }
       const auto* widgets = section["widget"].as_table();
       if (widgets == nullptr) {
@@ -586,6 +594,8 @@ namespace noctalia::config {
           Expected{"flip_x", isBool, "a boolean"},
           Expected{"flip_y", isBool, "a boolean"},
           Expected{"enabled", isBool, "a boolean"},
+          Expected{"position", isString, "a string"},
+          Expected{"anchor", isString, "a string"},
           Expected{"settings", isTable, "a table"},
       };
       const std::string widgetBase = schema::joinPath(prefix, "widget");
@@ -594,6 +604,36 @@ namespace noctalia::config {
           check(*tbl, schema::joinPath(widgetBase, id.str()), kWidget);
         } else {
           schema::warnWrongType(diag, schema::joinPath(widgetBase, id.str()), node, "a table");
+        }
+      }
+    }
+
+    // The parser falls back to the defaults on bad values, which would silently turn a relative
+    // cx = 0.5 into an absolute half pixel, so warn about them here.
+    void validatePlacedWidgetPosition(const toml::table& widget, const std::string& base, schema::Diagnostics& diag) {
+      bool relative = false;
+      if (const auto position = widget["position"].value<std::string>()) {
+        const auto mode = noctalia::config::parsePositionMode(*position);
+        if (!mode.has_value()) {
+          diag.warn(base + ".position", "unknown position \"" + *position + "\" (expected absolute or relative)");
+        }
+        relative = mode == DesktopWidgetPositionMode::Relative;
+      }
+      if (const auto anchor = widget["anchor"].value<std::string>()) {
+        if (!noctalia::config::parseAnchor(*anchor).has_value()) {
+          diag.warn(base + ".anchor", "unknown anchor \"" + *anchor + "\"");
+        } else if (!relative) {
+          diag.warn(base + ".anchor", "anchor only applies to widgets with position = \"relative\"");
+        }
+      }
+      if (!relative) {
+        return;
+      }
+      // The editor stores values a little outside 0..1 for an anchored widget hanging off an edge, so only
+      // warn about values it can't produce, such as a position still in pixels.
+      for (const std::string_view key : {"cx", "cy"}) {
+        if (const auto value = widget[key].value<double>(); value.has_value() && (*value < -1.0 || *value > 2.0)) {
+          diag.warn(base + "." + std::string(key), "relative position is far outside 0..1");
         }
       }
     }
@@ -631,6 +671,26 @@ namespace noctalia::config {
           }
         }
       }
+      if (const auto* outputs = (*section)["output"].as_table()) {
+        for (const auto& [outputName, node] : *outputs) {
+          const std::string base = sectionPrefix + "output." + std::string(outputName.str());
+          const auto* entry = node.as_table();
+          if (entry == nullptr) {
+            diag.warn(base, "expected a table");
+            continue;
+          }
+          for (const auto& [key, value] : *entry) {
+            (void)value;
+            if (!std::ranges::contains(noctalia::config::kWidgetsOutputKeys, key.str())) {
+              diag.warn(base + "." + std::string(key.str()), "unknown setting");
+            }
+          }
+          if (const auto layout = (*entry)["layout"].value<std::string>();
+              layout.has_value() && !noctalia::config::parseOutputLayout(*layout).has_value()) {
+            diag.warn(base + ".layout", "unknown layout \"" + *layout + "\" (expected auto, shared or own)");
+          }
+        }
+      }
       const auto* widgets = (*section)["widget"].as_table();
       if (widgets == nullptr) {
         return;
@@ -648,6 +708,7 @@ namespace noctalia::config {
             diag.warn(base + "." + std::string(key.str()), "unknown setting");
           }
         }
+        validatePlacedWidgetPosition(*tbl, base, diag);
         const std::string type = (*tbl)["type"].value<std::string>().value_or("");
         const bool isBuiltIn =
             std::ranges::any_of(desktop_settings::desktopWidgetTypeSpecs(), [type](const auto& spec) {
