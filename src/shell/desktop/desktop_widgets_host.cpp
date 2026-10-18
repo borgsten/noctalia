@@ -24,15 +24,6 @@ namespace {
 
   constexpr Logger kLog("desktop");
 
-  DesktopWidgetState* findStateById(DesktopWidgetsSnapshot& snapshot, const std::string& id) {
-    for (auto& widget : snapshot.widgets) {
-      if (widget.id == id) {
-        return &widget;
-      }
-    }
-    return nullptr;
-  }
-
   // Per-widget layer-shell namespace so compositor rules can target individual widgets.
   // The id already carries the "desktop-widget-" prefix; strip it to avoid doubling.
   std::string desktopWidgetNamespace(const DesktopWidgetState& state) {
@@ -240,9 +231,10 @@ void DesktopWidgetsHost::requestRedraw() {
   }
 }
 
-DesktopWidgetsHost::DesktopWidgetInstance* DesktopWidgetsHost::findInstance(const std::string& id) {
+DesktopWidgetsHost::DesktopWidgetInstance*
+DesktopWidgetsHost::findInstance(const std::string& id, const std::string& outputKey) {
   for (auto& instance : m_instances) {
-    if (instance->state.id == id) {
+    if (instance->state.id == id && instance->effectiveOutputName == outputKey) {
       return instance.get();
     }
   }
@@ -254,42 +246,24 @@ void DesktopWidgetsHost::syncInstances() {
     return;
   }
 
-  std::erase_if(m_instances, [this](const auto& instance) {
-    const DesktopWidgetState* state = findStateById(m_snapshot, instance->state.id);
-    return state == nullptr || !state->enabled;
+  // Explicitly bound widgets are hidden while their target output is unavailable.
+  const auto placements = desktop_widgets::resolveWidgetPlacements(*m_wayland, m_snapshot.widgets);
+
+  std::erase_if(m_instances, [&placements](const auto& instance) {
+    const auto* placement =
+        desktop_widgets::findPlacement(placements, instance->state.id, instance->effectiveOutputName);
+    return placement == nullptr || desktop_widgets::widgetDefinitionChanged(instance->state, *placement->state);
   });
 
-  for (const auto& state : m_snapshot.widgets) {
-    if (!state.enabled) {
-      continue;
-    }
-
-    const WaylandOutput* output = desktop_widgets::resolveStateOutput(*m_wayland, state);
-    if (output == nullptr) {
-      // Explicitly bound widgets are hidden while their target output is unavailable.
-      std::erase_if(m_instances, [&state](const auto& instance) { return instance->state.id == state.id; });
-      continue;
-    }
-
-    DesktopWidgetInstance* existing = findInstance(state.id);
+  for (const auto& placement : placements) {
+    DesktopWidgetInstance* existing = findInstance(placement.state->id, placement.outputKey);
     if (existing == nullptr) {
-      createInstance(state, *output);
+      createInstance(*placement.state, *placement.output);
       continue;
     }
 
-    const std::string effectiveOutputName = desktop_widgets::outputKey(*output);
-    const bool widgetDefinitionChanged = existing->state.type != state.type
-        || existing->state.settings != state.settings
-        || existing->effectiveOutputName != effectiveOutputName;
-
-    if (widgetDefinitionChanged) {
-      std::erase_if(m_instances, [&state](const auto& instance) { return instance->state.id == state.id; });
-      createInstance(state, *output);
-      continue;
-    }
-
-    if (!(existing->state == state)) {
-      existing->state = state;
+    if (!(existing->state == *placement.state)) {
+      existing->state = *placement.state;
       if (existing->surface != nullptr) {
         existing->surface->requestLayout();
       }
@@ -317,19 +291,17 @@ void DesktopWidgetsHost::createInstance(const DesktopWidgetState& state, const W
   const float intrinsicWidth = std::max(1.0F, widget->intrinsicWidth());
   const float intrinsicHeight = std::max(1.0F, widget->intrinsicHeight());
 
-  DesktopWidgetState clampedState = state;
-  if (m_wayland != nullptr) {
-    desktop_widgets::clampStateToOutput(*m_wayland, clampedState, intrinsicWidth, intrinsicHeight);
-  }
+  const WidgetTransformClampResult center =
+      desktop_widgets::clampCenterToOutput(state, output, intrinsicWidth, intrinsicHeight);
 
   const float outW = desktop_widgets::outputLogicalWidth(output);
   const float outH = desktop_widgets::outputLogicalHeight(output);
   const WidgetTransformClippedGeometry geometry = computeClippedWidgetSurfaceGeometry(
-      clampedState.cx, clampedState.cy, intrinsicWidth, intrinsicHeight, 1.0F, clampedState.rotationRad, outW, outH
+      center.cx, center.cy, intrinsicWidth, intrinsicHeight, 1.0F, state.rotationRad, outW, outH
   );
 
   auto surfaceConfig = LayerSurfaceConfig{
-      .nameSpace = desktopWidgetNamespace(clampedState),
+      .nameSpace = desktopWidgetNamespace(state),
       .layer = LayerShellLayer::Bottom,
       .anchor = LayerShellAnchor::Top | LayerShellAnchor::Left,
       .width = geometry.surfaceWidth,
@@ -343,9 +315,11 @@ void DesktopWidgetsHost::createInstance(const DesktopWidgetState& state, const W
   };
 
   auto instance = std::make_unique<DesktopWidgetInstance>();
-  instance->state = clampedState;
+  instance->state = state;
   instance->effectiveOutputName = desktop_widgets::outputKey(output);
   instance->output = output.output;
+  instance->resolvedCx = center.cx;
+  instance->resolvedCy = center.cy;
   instance->widget = std::move(widget);
   instance->intrinsicWidth = intrinsicWidth;
   instance->intrinsicHeight = intrinsicHeight;
@@ -500,22 +474,24 @@ void DesktopWidgetsHost::prepareFrame(DesktopWidgetInstance& instance, bool need
     instance.intrinsicHeight = std::max(1.0F, instance.widget->intrinsicHeight());
   }
 
-  if (m_wayland != nullptr) {
-    desktop_widgets::clampStateToOutput(*m_wayland, instance.state, instance.intrinsicWidth, instance.intrinsicHeight);
-  }
-
+  // Clamp from the configured center every frame; instance.state itself is never modified.
   float outputW = 1920.0F;
   float outputH = 1080.0F;
   if (m_wayland != nullptr) {
-    if (const WaylandOutput* output = desktop_widgets::resolveStateOutput(*m_wayland, instance.state);
+    if (const WaylandOutput* output = desktop_widgets::findOutputByKey(*m_wayland, instance.effectiveOutputName);
         output != nullptr) {
+      const WidgetTransformClampResult center = desktop_widgets::clampCenterToOutput(
+          instance.state, *output, instance.intrinsicWidth, instance.intrinsicHeight
+      );
+      instance.resolvedCx = center.cx;
+      instance.resolvedCy = center.cy;
       outputW = desktop_widgets::outputLogicalWidth(*output);
       outputH = desktop_widgets::outputLogicalHeight(*output);
     }
   }
 
   const WidgetTransformClippedGeometry geometry = computeClippedWidgetSurfaceGeometry(
-      instance.state.cx, instance.state.cy, instance.intrinsicWidth, instance.intrinsicHeight, 1.0F,
+      instance.resolvedCx, instance.resolvedCy, instance.intrinsicWidth, instance.intrinsicHeight, 1.0F,
       instance.state.rotationRad, outputW, outputH
   );
 

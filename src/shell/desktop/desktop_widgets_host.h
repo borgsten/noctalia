@@ -44,9 +44,13 @@ public:
 
 private:
   struct DesktopWidgetInstance {
+    // The widget's config as given; positions are never written back into it.
     DesktopWidgetState state;
     std::string effectiveOutputName;
     wl_output* output = nullptr;
+    // Where the widget is drawn: state.cx/cy clamped to the output for the current content size.
+    float resolvedCx = 0.0F;
+    float resolvedCy = 0.0F;
     std::unique_ptr<LayerSurface> surface;
     AnimationManager animations;
     InputDispatcher inputDispatcher;
@@ -69,7 +73,7 @@ private:
   void createInstance(const DesktopWidgetState& state, const WaylandOutput& output);
   void buildScene(DesktopWidgetInstance& instance);
   void prepareFrame(DesktopWidgetInstance& instance, bool needsUpdate, bool needsLayout);
-  [[nodiscard]] DesktopWidgetInstance* findInstance(const std::string& id);
+  [[nodiscard]] DesktopWidgetInstance* findInstance(const std::string& id, const std::string& outputKey);
   // Coverage of the wallpaper as drawn on the output with this key; empty (full resolution) if the output is unknown.
   [[nodiscard]] TextureCoverage wallpaperMaskCoverage(const std::string& outputName) const;
   // Re-targets every mask after output geometry or the wallpaper fill mode may have changed.

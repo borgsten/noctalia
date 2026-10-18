@@ -34,8 +34,13 @@ public:
 
 private:
   struct WidgetInstance {
+    // The widget's config as given; positions are never written back into it.
     DesktopWidgetState state;
+    std::string effectiveOutputName;
     LockSurface* surface = nullptr;
+    // Where the widget is drawn: state.cx/cy clamped to the output for the current content size.
+    float resolvedCx = 0.0F;
+    float resolvedCy = 0.0F;
     AnimationManager animations;
     Node* transformNode = nullptr;
     std::unique_ptr<DesktopWidget> widget;
@@ -47,8 +52,10 @@ private:
   void createInstance(const DesktopWidgetState& state, LockSurface& surface, const WaylandOutput& output);
   void attachToSurface(WidgetInstance& instance);
   void detachFromSurface(WidgetInstance& instance);
+  // Drops instances that detachFromSurface() has already detached.
+  void eraseDetachedInstances();
   void syncSurfaceFrameTick(LockSurface* surface);
-  [[nodiscard]] WidgetInstance* findInstance(const std::string& id);
+  [[nodiscard]] WidgetInstance* findInstance(const std::string& id, const std::string& outputKey);
   [[nodiscard]] LockSurface* findSurfaceForOutput(LockScreen& lockScreen, const std::string& outputKey) const;
 
   WaylandConnection* m_wayland = nullptr;

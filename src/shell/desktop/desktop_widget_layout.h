@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace desktop_widgets {
@@ -121,11 +122,21 @@ namespace desktop_widgets {
   };
 
   // Single source of truth for desktop widget coordinate clamping. Edit mode, default mode, and
-  // snapshot normalization all route through here so the visibility rule stays identical. Resolves
-  // the widget's effective output, then constrains state.cx/cy so that at least
+  // snapshot normalization all route through here so the visibility rule stays identical. Returns the
+  // center to draw the widget at on `output`: state.cx/cy constrained so that at least
   // kDesktopWidgetMinVisibleFraction of the widget's rotated AABB remains on screen. The caller
   // passes the widget's current box size as intrinsicWidth/intrinsicHeight, so no extra scale
   // multiplier is applied here.
+  inline WidgetTransformClampResult clampCenterToOutput(
+      const DesktopWidgetState& state, const WaylandOutput& output, float intrinsicWidth, float intrinsicHeight
+  ) {
+    return clampWidgetCenterToOutput(
+        state.cx, state.cy, intrinsicWidth, intrinsicHeight, 1.0F, state.rotationRad, outputLogicalWidth(output),
+        outputLogicalHeight(output), kDesktopWidgetMinVisibleFraction
+    );
+  }
+
+  // Resolves the widget's effective output and writes the clamped center back into the state.
   inline const WaylandOutput* clampStateToOutput(
       const WaylandConnection& wayland, DesktopWidgetState& state, float intrinsicWidth, float intrinsicHeight
   ) {
@@ -133,13 +144,50 @@ namespace desktop_widgets {
     if (output == nullptr) {
       return nullptr;
     }
-    const WidgetTransformClampResult clamped = clampWidgetCenterToOutput(
-        state.cx, state.cy, intrinsicWidth, intrinsicHeight, 1.0F, state.rotationRad, outputLogicalWidth(*output),
-        outputLogicalHeight(*output), kDesktopWidgetMinVisibleFraction
-    );
+    const WidgetTransformClampResult clamped = clampCenterToOutput(state, *output, intrinsicWidth, intrinsicHeight);
     state.cx = clamped.cx;
     state.cy = clamped.cy;
     return output;
+  }
+
+  // One widget instance a host should show: the widget's config and the output it is shown on.
+  struct WidgetPlacement {
+    const DesktopWidgetState* state = nullptr;
+    const WaylandOutput* output = nullptr;
+    std::string outputKey;
+  };
+
+  // The enabled widgets that can be shown on a current output, in config order. Widgets bound to an
+  // unavailable output are left out.
+  inline std::vector<WidgetPlacement>
+  resolveWidgetPlacements(const WaylandConnection& wayland, const std::vector<DesktopWidgetState>& widgets) {
+    std::vector<WidgetPlacement> placements;
+    for (const auto& widget : widgets) {
+      if (!widget.enabled) {
+        continue;
+      }
+      const WaylandOutput* output = resolveStateOutput(wayland, widget);
+      if (output == nullptr) {
+        continue;
+      }
+      placements.push_back(WidgetPlacement{.state = &widget, .output = output, .outputKey = outputKey(*output)});
+    }
+    return placements;
+  }
+
+  inline const WidgetPlacement*
+  findPlacement(const std::vector<WidgetPlacement>& placements, std::string_view id, std::string_view outputKey) {
+    for (const auto& placement : placements) {
+      if (placement.state->id == id && placement.outputKey == outputKey) {
+        return &placement;
+      }
+    }
+    return nullptr;
+  }
+
+  // A change the live widget cannot pick up in place: the instance has to be recreated.
+  inline bool widgetDefinitionChanged(const DesktopWidgetState& current, const DesktopWidgetState& next) {
+    return current.type != next.type || current.settings != next.settings;
   }
 
 } // namespace desktop_widgets

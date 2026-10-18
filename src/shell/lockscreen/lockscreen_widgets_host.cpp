@@ -21,15 +21,6 @@ namespace {
 
   constexpr Logger kLog("lockscreen");
 
-  DesktopWidgetState* findStateById(LockscreenWidgetsSnapshot& snapshot, const std::string& id) {
-    for (auto& widget : snapshot.widgets) {
-      if (widget.id == id) {
-        return &widget;
-      }
-    }
-    return nullptr;
-  }
-
 } // namespace
 
 void LockscreenWidgetsHost::initialize(const DesktopWidgetServices& services) {
@@ -74,13 +65,12 @@ void LockscreenWidgetsHost::reloadPluginWidgets(LockScreen& lockScreen) {
   // Match on the id syntax, not the registry: a plugin disabled by this reload has
   // already left the registry, and its instances must go down with it.
   const auto before = m_instances.size();
-  std::erase_if(m_instances, [this](std::unique_ptr<WidgetInstance>& instance) {
-    if (!scripting::isValidPluginEntryId(instance->state.type)) {
-      return false;
+  for (auto& instance : m_instances) {
+    if (scripting::isValidPluginEntryId(instance->state.type)) {
+      detachFromSurface(*instance);
     }
-    detachFromSurface(*instance);
-    return true;
-  });
+  }
+  eraseDetachedInstances();
   if (m_instances.size() == before) {
     return;
   }
@@ -112,9 +102,10 @@ void LockscreenWidgetsHost::onSecondTick() {
   }
 }
 
-LockscreenWidgetsHost::WidgetInstance* LockscreenWidgetsHost::findInstance(const std::string& id) {
+LockscreenWidgetsHost::WidgetInstance*
+LockscreenWidgetsHost::findInstance(const std::string& id, const std::string& outputKey) {
   for (auto& instance : m_instances) {
-    if (instance->state.id == id) {
+    if (instance->state.id == id && instance->effectiveOutputName == outputKey) {
       return instance.get();
     }
   }
@@ -143,70 +134,41 @@ void LockscreenWidgetsHost::syncSurfaces(LockScreen& lockScreen) {
     return;
   }
 
-  std::erase_if(m_instances, [this](std::unique_ptr<WidgetInstance>& instance) {
-    const DesktopWidgetState* state = findStateById(m_snapshot, instance->state.id);
-    if (state == nullptr || !state->enabled) {
+  const auto placements = desktop_widgets::resolveWidgetPlacements(*m_wayland, m_snapshot.widgets);
+
+  // Detach first and erase afterwards: detachFromSurface() walks m_instances, which must not be
+  // mid-erase at that point.
+  for (auto& instance : m_instances) {
+    const auto* placement =
+        desktop_widgets::findPlacement(placements, instance->state.id, instance->effectiveOutputName);
+    const bool keep = placement != nullptr
+        && !desktop_widgets::widgetDefinitionChanged(instance->state, *placement->state)
+        && instance->surface == findSurfaceForOutput(lockScreen, instance->effectiveOutputName);
+    if (!keep) {
       detachFromSurface(*instance);
-      return true;
     }
-    return instance->surface == nullptr;
-  });
+  }
+  eraseDetachedInstances();
 
-  for (const auto& state : m_snapshot.widgets) {
-    if (!state.enabled || lockscreen_login_box::isLoginBoxWidget(state)) {
+  for (const auto& placement : placements) {
+    if (lockscreen_login_box::isLoginBoxWidget(*placement.state)) {
       continue;
     }
 
-    const WaylandOutput* output = desktop_widgets::resolveStateOutput(*m_wayland, state);
-    if (output == nullptr) {
-      std::erase_if(m_instances, [this, &state](std::unique_ptr<WidgetInstance>& instance) {
-        if (instance->state.id == state.id) {
-          detachFromSurface(*instance);
-          return true;
-        }
-        return false;
-      });
-      continue;
-    }
-
-    const std::string outputKey = desktop_widgets::outputKey(*output);
-    LockSurface* surface = findSurfaceForOutput(lockScreen, outputKey);
+    LockSurface* surface = findSurfaceForOutput(lockScreen, placement.outputKey);
     if (surface == nullptr) {
-      std::erase_if(m_instances, [this, &state](std::unique_ptr<WidgetInstance>& instance) {
-        if (instance->state.id == state.id) {
-          detachFromSurface(*instance);
-          return true;
-        }
-        return false;
-      });
       continue;
     }
 
-    WidgetInstance* existing = findInstance(state.id);
+    WidgetInstance* existing = findInstance(placement.state->id, placement.outputKey);
     if (existing == nullptr) {
-      createInstance(state, *surface, *output);
+      createInstance(*placement.state, *surface, *placement.output);
       continue;
     }
 
-    const bool widgetDefinitionChanged = existing->state.type != state.type
-        || existing->state.settings != state.settings
-        || existing->surface != surface;
-
-    if (widgetDefinitionChanged) {
-      detachFromSurface(*existing);
-      std::erase_if(m_instances, [this, &state](std::unique_ptr<WidgetInstance>& instance) {
-        detachFromSurface(*instance);
-        return instance->state.id == state.id;
-      });
-      createInstance(state, *surface, *output);
-      continue;
-    }
-
-    if (!(existing->state == state)) {
-      existing->state = state;
-      if (existing->surface != nullptr) {
-        existing->surface->requestLayout();
-      }
+    if (!(existing->state == *placement.state)) {
+      existing->state = *placement.state;
+      existing->surface->requestLayout();
     }
   }
 
@@ -239,12 +201,15 @@ void LockscreenWidgetsHost::createInstance(
   const float intrinsicWidth = std::max(1.0F, widget->intrinsicWidth());
   const float intrinsicHeight = std::max(1.0F, widget->intrinsicHeight());
 
-  DesktopWidgetState clampedState = state;
-  desktop_widgets::clampStateToOutput(*m_wayland, clampedState, intrinsicWidth, intrinsicHeight);
+  const WidgetTransformClampResult center =
+      desktop_widgets::clampCenterToOutput(state, output, intrinsicWidth, intrinsicHeight);
 
   auto instance = std::make_unique<WidgetInstance>();
-  instance->state = clampedState;
+  instance->state = state;
+  instance->effectiveOutputName = desktop_widgets::outputKey(output);
   instance->surface = &surface;
+  instance->resolvedCx = center.cx;
+  instance->resolvedCy = center.cy;
   instance->widget = std::move(widget);
   instance->intrinsicWidth = intrinsicWidth;
   instance->intrinsicHeight = intrinsicHeight;
@@ -275,7 +240,6 @@ void LockscreenWidgetsHost::createInstance(
 
   attachToSurface(*instance);
   m_instances.push_back(std::move(instance));
-  (void)output;
 }
 
 void LockscreenWidgetsHost::attachToSurface(WidgetInstance& instance) {
@@ -358,6 +322,10 @@ void LockscreenWidgetsHost::detachFromSurface(WidgetInstance& instance) {
   }
 }
 
+void LockscreenWidgetsHost::eraseDetachedInstances() {
+  std::erase_if(m_instances, [](const auto& instance) { return instance->surface == nullptr; });
+}
+
 void LockscreenWidgetsHost::prepareFrame(LockSurface& surface, bool needsUpdate, bool needsLayout) {
   if (!m_visible || m_renderContext == nullptr) {
     return;
@@ -369,6 +337,8 @@ void LockscreenWidgetsHost::prepareFrame(LockSurface& surface, bool needsUpdate,
   const float baseUiScale = m_config != nullptr ? m_config->config().accessibility.uiScale : 1.0F;
   const auto surfaceW = static_cast<float>(surface.width());
   const auto surfaceH = static_cast<float>(surface.height());
+
+  const WaylandOutput* output = m_wayland != nullptr ? m_wayland->findOutputByWl(surface.output()) : nullptr;
 
   Node* layer = surface.widgetLayer();
   if (layer != nullptr) {
@@ -393,15 +363,12 @@ void LockscreenWidgetsHost::prepareFrame(LockSurface& surface, bool needsUpdate,
       instance->intrinsicHeight = std::max(1.0F, instance->widget->intrinsicHeight());
     }
 
-    if (m_wayland != nullptr) {
-      DesktopWidgetState currentState = instance->state;
-      if (const DesktopWidgetState* origState = findStateById(m_snapshot, instance->state.id); origState != nullptr) {
-        currentState = *origState;
-      }
-      desktop_widgets::clampStateToOutput(
-          *m_wayland, currentState, instance->intrinsicWidth, instance->intrinsicHeight
+    if (output != nullptr) {
+      const WidgetTransformClampResult center = desktop_widgets::clampCenterToOutput(
+          instance->state, *output, instance->intrinsicWidth, instance->intrinsicHeight
       );
-      instance->state = currentState;
+      instance->resolvedCx = center.cx;
+      instance->resolvedCy = center.cy;
     }
 
     if (instance->transformNode == nullptr) {
@@ -410,7 +377,7 @@ void LockscreenWidgetsHost::prepareFrame(LockSurface& surface, bool needsUpdate,
 
     instance->transformNode->setFrameSize(instance->intrinsicWidth, instance->intrinsicHeight);
     instance->transformNode->setPosition(
-        instance->state.cx - instance->intrinsicWidth * 0.5F, instance->state.cy - instance->intrinsicHeight * 0.5F
+        instance->resolvedCx - instance->intrinsicWidth * 0.5F, instance->resolvedCy - instance->intrinsicHeight * 0.5F
     );
     instance->transformNode->setRotation(instance->state.rotationRad);
     float flipScaleX = 1.0F;
