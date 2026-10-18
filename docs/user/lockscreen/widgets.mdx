@@ -54,9 +54,27 @@ Same interaction model as desktop widget edit mode (move, rotate, resize, grid s
 
 ## Config format
 
-The schema mirrors `[desktop_widgets]`: `enabled`, `schema_version`, optional `[lockscreen_widgets.grid]`, `widget_order`, and `[lockscreen_widgets.widget.<id>]` tables with `type`, `output`, `cx`, `cy`, `box_width`, `box_height`, `rotation`, `enabled`, and `[lockscreen_widgets.widget.<id>.settings]`.
+The schema mirrors `[desktop_widgets]`: `enabled`, `schema_version`, optional `[lockscreen_widgets.grid]`, `widget_order`, and `[lockscreen_widgets.widget.<id>]` tables with `type`, `output`, `position`, `anchor`, `cx`, `cy`, `box_width`, `box_height`, `rotation`, `enabled`, and `[lockscreen_widgets.widget.<id>.settings]`.
+
+Relative positions, anchors and the shared layout (`output = "*"` with `[lockscreen_widgets.output.<name>] layout`) work as for [desktop widgets](/noctalia/desktop/widgets/#positioning). The lockscreen has its own `layout` per monitor, independent of the desktop.
 
 Widget IDs generated in the editor use the `lockscreen-widget-` prefix. Login box placement uses fixed IDs `lockscreen-login-box@<output>` with `type = "login_box"` (not shown in the add-widget list).
+
+### Shared login box
+
+Each monitor shows one login box. A login box with `output = "*"` is used on every monitor that shows the shared layout; the other monitors use their own box, which is created when missing. Login boxes don't count as a monitor's own widgets for `layout = "auto"`.
+
+```toml
+[lockscreen_widgets.widget."lockscreen-login-box@*"]
+type     = "login_box"
+output   = "*"
+position = "relative"
+anchor   = "bottom"
+cx       = 0.5
+cy       = 0.92
+```
+
+The shared login box can be moved and styled in the editor on the monitors that use it; making a login box shared is done in the config. If no monitor would show an enabled login box, every monitor shows its box anyway, so the screen can always be unlocked.
 
 ### Login box settings
 

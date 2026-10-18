@@ -114,8 +114,10 @@ format = "{:%H:%M}"
 |-------|------|---------|-------------|
 | Table key | string | (required) | Unique widget identifier (`clock_main` in `[desktop_widgets.widget.clock_main]`) |
 | `type` | string | (required) | Widget type (`clock`, `weather`, `media_player`, etc.) |
-| `output` | string | - | Monitor name (e.g. `"DP-1"`) |
-| `cx`, `cy` | float | - | Center position in logical pixels |
+| `output` | string | - | Monitor name (e.g. `"DP-1"`), or `"*"` for the [shared layout](#shared-layout) |
+| `position` | string | `"absolute"` | `"absolute"`: `cx`/`cy` are logical pixels. `"relative"`: `cx`/`cy` are fractions of the monitor size. See [Positioning](#positioning) |
+| `anchor` | string | `"center"` | Point of the widget that `cx`/`cy` place. See [Positioning](#positioning) |
+| `cx`, `cy` | float | - | Position of the widget's anchor point (its center by default) |
 | `box_width` | float | `0.0` | Widget box width in logical pixels; `0.0` auto-fits the content |
 | `box_height` | float | `0.0` | Widget box height in logical pixels; `0.0` auto-fits the content |
 | `rotation` | float | `0.0` | Rotation in radians |
@@ -128,6 +130,67 @@ format = "{:%H:%M}"
 type    = "clock"
 enabled = false   # hidden, but preserved
 ```
+
+### Positioning
+
+`cx`/`cy` place one point of the widget, its **anchor**. The anchor is one of `top_left`, `top`, `top_right`, `left`,
+`center` (default), `right`, `bottom_left`, `bottom` or `bottom_right`, taken on the widget's bounding box (rotated
+widgets use the box around the rotated shape). A widget anchored `top_right` keeps its top-right corner in place when its
+content grows or shrinks, for example a clock showing seconds.
+
+`position` decides the unit of `cx`/`cy`:
+
+- `absolute` (default): logical pixels from the monitor's top-left corner. When the resolution or scale of the
+  monitor a widget is bound to changes, the position is scaled to the new size.
+- `relative`: fractions of the monitor's logical width and height, `0.0`–`1.0`, so the widget lands at the same spot
+  on monitors of any size. Positions outside `0.0`–`1.0` are allowed but give a validation warning.
+
+Fractions are of the whole monitor, including the area under bars. Widget size (`box_width`/`box_height`) stays in
+logical pixels in both modes, so a relative widget has the same size on every monitor.
+
+```toml
+# Flush with the top-right corner of every monitor it is shown on
+[desktop_widgets.widget.clock_corner]
+type     = "clock"
+output   = "*"
+position = "relative"
+anchor   = "top_right"
+cx       = 1.0
+cy       = 0.0
+```
+
+### Shared layout
+
+A widget with `output = "*"` belongs to the **shared layout**: it is shown on every monitor that shows the shared layout,
+which lets you configure widgets once for all monitors. Each monitor decides that with an optional table:
+
+```toml
+[desktop_widgets.output.DP-1]
+layout = "shared"   # "auto" (default), "shared" or "own"
+```
+
+| `layout` | Shows the shared layout |
+|----------|-------------------------|
+| `auto` | Only while no enabled widget is bound to the monitor. Existing per-monitor layouts keep working unchanged, and shared widgets appear on monitors that have nothing of their own |
+| `shared` | Always. Widgets bound to the monitor are shown alongside the shared ones |
+| `own` | Never. A monitor set to `own` without bound widgets stays empty |
+
+Widgets bound to a monitor are always shown there. A widget without an `output` belongs to the first monitor.
+
+Older Noctalia versions don't show `output = "*"` widgets and place relative and anchored widgets wrongly.
+
+### Editing positions
+
+The editor toolbar has controls for the selected widgets:
+
+- **Show on All Monitors** switches between the shared layout and the monitor the toolbar is on.
+- **Relative Position** switches between `absolute` and `relative`; the widget stays where it is.
+- The **anchor** menu changes the anchor; the widget stays where it is.
+- **Layout** sets the monitor's `layout`. The **Auto** entry shows what `auto` would show there.
+
+A shared widget can be moved and resized from any monitor that shows it, and follows on all of them. Adding a widget to,
+or moving one onto, an `auto` monitor that shows the shared layout sets that monitor to `shared`, so the shared widgets
+stay visible there.
 
 ### Common settings
 
