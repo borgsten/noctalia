@@ -74,11 +74,40 @@ namespace desktop_widgets {
   std::vector<std::string> SharedLayoutResolver::outputsFor(const DesktopWidgetState& widget) const {
     std::vector<std::string> outputs;
     for (const auto& key : m_outputKeys) {
-      if (isSharedWidget(widget) ? showsShared(key) : isBoundTo(widget, key)) {
+      bool shown = false;
+      if (lockscreen_login_box::isLoginBoxWidget(widget)) {
+        const DesktopWidgetState* loginBox = loginBoxFor(key);
+        shown = loginBox != nullptr && loginBox->id == widget.id;
+      } else if (isSharedWidget(widget)) {
+        shown = showsShared(key);
+      } else {
+        shown = isBoundTo(widget, key);
+      }
+      if (shown) {
         outputs.push_back(key);
       }
     }
     return outputs;
+  }
+
+  const DesktopWidgetState* SharedLayoutResolver::loginBoxFor(std::string_view key) const {
+    if (showsShared(key)) {
+      const auto shared = std::ranges::find_if(m_widgets, [](const DesktopWidgetState& widget) {
+        return lockscreen_login_box::isLoginBoxWidget(widget) && isSharedWidget(widget);
+      });
+      if (shared != m_widgets.end()) {
+        return &*shared;
+      }
+    }
+    return lockscreen_login_box::findForOutput(m_widgets, m_outputs, key);
+  }
+
+  bool SharedLayoutResolver::showsLoginBox(std::string_view outputKey) const {
+    const auto shows = [this](std::string_view key) {
+      const DesktopWidgetState* loginBox = loginBoxFor(key);
+      return loginBox == nullptr || loginBox->enabled;
+    };
+    return shows(outputKey) || std::ranges::none_of(m_outputKeys, shows);
   }
 
   std::vector<WidgetPlacement> resolveWidgetPlacements(

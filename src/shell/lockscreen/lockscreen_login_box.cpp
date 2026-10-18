@@ -3,6 +3,7 @@
 #include "core/log.h"
 #include "shell/desktop/desktop_widget_layout.h"
 #include "shell/desktop/desktop_widget_settings_registry.h"
+#include "shell/desktop/shared_widget_layout.h"
 #include "ui/style.h"
 
 #include <algorithm>
@@ -15,6 +16,9 @@ namespace lockscreen_login_box {
   namespace {
 
     constexpr Logger kLog("lockscreen-widgets");
+
+    // Sizes a shared login box that has no size yet; it is fitted to each screen when it is drawn.
+    constexpr float kSharedBoxReferenceWidth = 1920.0F;
 
     [[nodiscard]] float readFloat(
         const std::unordered_map<std::string, WidgetSettingValue>& settings, std::string_view key, float fallback
@@ -288,7 +292,7 @@ namespace lockscreen_login_box {
       const std::vector<DesktopWidgetState>& widgets, std::span<const WaylandOutput> outputs, std::string_view outputKey
   ) {
     for (const auto& widget : widgets) {
-      if (!isLoginBoxWidget(widget) || widget.outputName.empty()) {
+      if (!isLoginBoxWidget(widget) || widget.outputName.empty() || desktop_widgets::isSharedWidget(widget)) {
         continue;
       }
       const auto selection = desktop_widgets::selectOutput(outputs, widget.outputName);
@@ -393,7 +397,11 @@ namespace lockscreen_login_box {
     clampRadiusSetting(settings, kInputRadiusKey);
   }
 
-  void ensureWidgets(std::vector<DesktopWidgetState>& widgets, std::span<const WaylandOutput> outputs) {
+  void ensureWidgets(
+      std::vector<DesktopWidgetState>& widgets,
+      const std::unordered_map<std::string, DesktopWidgetOutputLayout>& outputLayouts,
+      std::span<const WaylandOutput> outputs
+  ) {
     std::unordered_set<std::string> loginBoxSelectors;
     std::erase_if(widgets, [&](const DesktopWidgetState& widget) {
       if (!isLoginBoxWidget(widget)) {
@@ -408,6 +416,23 @@ namespace lockscreen_login_box {
 
     for (auto& widget : widgets) {
       if (!isLoginBoxWidget(widget)) {
+        continue;
+      }
+      // A shared box has no single screen: its width is fitted to each one when it is drawn.
+      if (desktop_widgets::isSharedWidget(widget)) {
+        widget.rotationRad = 0.0F;
+        normalizeSettings(widget.settings);
+        const LoginBoxStyle style = resolveStyle(widget.settings);
+        const bool showInfo = styleShowsInfoExtras(style);
+        if (widget.boxWidth <= 0.0F || widget.boxHeight <= 0.0F) {
+          defaultPanelSize(
+              kSharedBoxReferenceWidth, widget.boxWidth, widget.boxHeight, style.layout, style.showSessionButtons,
+              showInfo
+          );
+        } else {
+          widget.boxWidth = std::max(widget.boxWidth, minPanelWidth(style.layout));
+          widget.boxHeight = defaultPanelHeight(style.layout, style.showSessionButtons, showInfo);
+        }
         continue;
       }
       const auto selection = desktop_widgets::selectOutput(outputs, widget.outputName);
@@ -440,12 +465,14 @@ namespace lockscreen_login_box {
       desktop_widgets::clampStateToOutput(outputs, widget, widget.boxWidth, widget.boxHeight);
     }
 
+    // Login boxes do not affect which outputs show the shared layout, so inserting them below is safe.
+    const desktop_widgets::SharedLayoutResolver resolver(widgets, outputLayouts, outputs);
     for (const auto& output : outputs) {
       if (!output.done || output.output == nullptr || !output.hasUsableGeometry()) {
         continue;
       }
       const std::string outputKey = desktop_widgets::outputKey(output);
-      if (findForOutput(widgets, outputs, outputKey) != nullptr) {
+      if (resolver.loginBoxFor(outputKey) != nullptr) {
         continue;
       }
 
@@ -475,11 +502,7 @@ namespace lockscreen_login_box {
       widgets.push_back(std::move(widget));
     }
 
-    const auto isAssigned = [&](const DesktopWidgetState& widget) {
-      const auto selection = desktop_widgets::selectOutput(outputs, widget.outputName);
-      return selection.output != nullptr
-          && findForOutput(widgets, outputs, desktop_widgets::outputKey(*selection.output)) == &widget;
-    };
+    const auto isAssigned = [&](const DesktopWidgetState& widget) { return !resolver.outputsFor(widget).empty(); };
     bool anyEnabled = false;
     for (const auto& widget : widgets) {
       if (isLoginBoxWidget(widget) && widget.enabled && isAssigned(widget)) {

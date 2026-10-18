@@ -155,6 +155,11 @@ namespace lockscreen_login_box {
   void applyAllDefaultSettings(std::unordered_map<std::string, WidgetSettingValue>& settings);
   void normalizeSettings(std::unordered_map<std::string, WidgetSettingValue>& settings);
 
-  void ensureWidgets(std::vector<DesktopWidgetState>& widgets, std::span<const WaylandOutput> outputs);
+  // Keeps one login box per output, creating the missing ones, except on outputs that use the shared one.
+  void ensureWidgets(
+      std::vector<DesktopWidgetState>& widgets,
+      const std::unordered_map<std::string, DesktopWidgetOutputLayout>& outputLayouts,
+      std::span<const WaylandOutput> outputs
+  );
 
 } // namespace lockscreen_login_box

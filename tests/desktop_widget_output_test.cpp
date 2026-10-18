@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -111,6 +112,7 @@ namespace {
   }
 
   void checkLoginBoxes() {
+    const std::unordered_map<std::string, DesktopWidgetOutputLayout> noLayouts;
     std::vector<WaylandOutput> outputs{
         makeOutput("DP-3", "Landscape", "LANDSCAPE123", 2560, 1440),
         makeOutput("DP-4", "Portrait", "PORTRAIT456", 1296, 2304),
@@ -122,33 +124,33 @@ namespace {
     for (auto& widget : widgets) {
       widget.type = "login_box";
     }
-    lockscreen_login_box::ensureWidgets(widgets, outputs);
+    lockscreen_login_box::ensureWidgets(widgets, noLayouts, outputs);
     TEST_CHECK(widgets.size() == 2);
     const auto original = widgets;
     std::swap(outputs[0].connectorName, outputs[1].connectorName);
-    lockscreen_login_box::ensureWidgets(widgets, outputs);
+    lockscreen_login_box::ensureWidgets(widgets, noLayouts, outputs);
     TEST_CHECK(widgets == original);
     TEST_CHECK(lockscreen_login_box::findForOutput(widgets, outputs, "DP-4") == widgets.data());
     TEST_CHECK(lockscreen_login_box::findForOutput(widgets, outputs, "DP-3") == &widgets[1]);
 
     outputs.erase(outputs.begin());
-    lockscreen_login_box::ensureWidgets(widgets, outputs);
+    lockscreen_login_box::ensureWidgets(widgets, noLayouts, outputs);
     TEST_CHECK(widgets == original);
     widgets[1].enabled = false;
-    lockscreen_login_box::ensureWidgets(widgets, outputs);
+    lockscreen_login_box::ensureWidgets(widgets, noLayouts, outputs);
     TEST_CHECK(widgets[1].enabled);
 
     // A disabled matching box still covers its output; it must not gain a duplicate.
     outputs.insert(outputs.begin(), makeOutput("DP-11", "Landscape", "LANDSCAPE123", 2560, 1440));
     widgets[0].enabled = false;
-    lockscreen_login_box::ensureWidgets(widgets, outputs);
+    lockscreen_login_box::ensureWidgets(widgets, noLayouts, outputs);
     TEST_CHECK(widgets.size() == 2);
     TEST_CHECK(!widgets[0].enabled);
     TEST_CHECK(lockscreen_login_box::findForOutput(widgets, outputs, "DP-11") == widgets.data());
 
     widgets[0].outputName = "Acme";
     const auto ambiguous = widgets[0];
-    lockscreen_login_box::ensureWidgets(widgets, outputs);
+    lockscreen_login_box::ensureWidgets(widgets, noLayouts, outputs);
     TEST_CHECK(widgets.size() == 3);
     const auto retained = std::ranges::find(widgets, ambiguous.id, &DesktopWidgetState::id);
     TEST_CHECK(retained != widgets.end());
@@ -165,7 +167,7 @@ namespace {
     exact.outputName = "DP-11";
     exact.enabled = false;
     widgets.insert(widgets.begin(), exact);
-    lockscreen_login_box::ensureWidgets(widgets, outputs);
+    lockscreen_login_box::ensureWidgets(widgets, noLayouts, outputs);
     TEST_CHECK(widgets.size() == 3);
     const auto* chosen = lockscreen_login_box::findForOutput(widgets, outputs, "DP-11");
     TEST_CHECK(chosen == widgets.data());
@@ -175,10 +177,10 @@ namespace {
     // Identity metadata can arrive after a default box has already been created.
     widgets = original;
     outputs[0].serialNumber.clear();
-    lockscreen_login_box::ensureWidgets(widgets, outputs);
+    lockscreen_login_box::ensureWidgets(widgets, noLayouts, outputs);
     TEST_CHECK(widgets.size() == 3);
     outputs[0].serialNumber = "LANDSCAPE123";
-    lockscreen_login_box::ensureWidgets(widgets, outputs);
+    lockscreen_login_box::ensureWidgets(widgets, noLayouts, outputs);
     TEST_CHECK(widgets.size() == 3);
     TEST_CHECK(lockscreen_login_box::findForOutput(widgets, outputs, "DP-11") == widgets.data());
     TEST_CHECK(widgets[0] == original[0]);
@@ -186,7 +188,7 @@ namespace {
     widgets = original;
     outputs[1].connectorName = "DP-12";
     outputs.push_back(makeOutput("DP-3", "NewMonitor", "NEW789", 1920, 1080));
-    lockscreen_login_box::ensureWidgets(widgets, outputs);
+    lockscreen_login_box::ensureWidgets(widgets, noLayouts, outputs);
     TEST_CHECK(widgets.size() == 3);
     const auto* newBox = lockscreen_login_box::findForOutput(widgets, outputs, "DP-3");
     TEST_CHECK(newBox != nullptr);

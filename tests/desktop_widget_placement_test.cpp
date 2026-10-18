@@ -7,6 +7,7 @@
 #include "core/toml.h"
 #include "shell/desktop/desktop_widget_layout.h"
 #include "shell/desktop/shared_widget_layout.h"
+#include "shell/lockscreen/lockscreen_login_box.h"
 
 #include <algorithm>
 #include <array>
@@ -186,6 +187,98 @@ namespace {
     }
   }
 
+  void testLoginBoxSelection() {
+    using desktop_widgets::SharedLayoutResolver;
+    const std::vector<WaylandOutput> outputs = {makeOutput("DP-1"), makeOutput("DP-2")};
+    const std::vector<DesktopWidgetState> widgets = {
+        widget("box-dp1", "DP-1", "login_box"),
+        widget("box-shared", "*", "login_box"),
+        widget("own", "DP-1"),
+    };
+    const std::unordered_map<std::string, DesktopWidgetOutputLayout> layouts;
+    const SharedLayoutResolver resolver(widgets, layouts, outputs);
+    const auto* dp1 = resolver.loginBoxFor("DP-1");
+    const auto* dp2 = resolver.loginBoxFor("DP-2");
+    expect(dp1 != nullptr && dp1->id == "box-dp1", "an output with its own layout uses its own login box");
+    expect(dp2 != nullptr && dp2->id == "box-shared", "a shared output uses the shared login box");
+    expect(
+        resolver.outputsFor(widgets[1]) == std::vector<std::string>{"DP-2"},
+        "the shared login box is only shown where it is used"
+    );
+
+    const std::vector<DesktopWidgetState> boundOnly = {widget("box-dp1", "DP-1", "login_box")};
+    const SharedLayoutResolver boundResolver(boundOnly, layouts, outputs);
+    expect(boundResolver.loginBoxFor("DP-2") == nullptr, "no login box when neither a shared nor a bound one exists");
+
+    std::vector<DesktopWidgetState> disabled = {
+        widget("box-dp1", "DP-1", "login_box"), widget("box-dp2", "DP-2", "login_box")
+    };
+    disabled[0].enabled = false;
+    {
+      const SharedLayoutResolver resolver(disabled, layouts, outputs);
+      expect(!resolver.showsLoginBox("DP-1"), "a disabled login box is hidden while another output shows one");
+      expect(resolver.showsLoginBox("DP-2"), "an enabled login box is shown");
+    }
+    disabled[1].enabled = false;
+    {
+      const SharedLayoutResolver resolver(disabled, layouts, outputs);
+      expect(
+          resolver.showsLoginBox("DP-1") && resolver.showsLoginBox("DP-2"),
+          "every output shows its login box when none is enabled"
+      );
+    }
+  }
+
+  void testLoginBoxSelectors() {
+    using desktop_widgets::SharedLayoutResolver;
+    const std::vector<WaylandOutput> outputs = {makeOutput("DP-1", "Landscape"), makeOutput("DP-2", "Portrait")};
+    const std::unordered_map<std::string, DesktopWidgetOutputLayout> noLayouts;
+
+    std::vector<DesktopWidgetState> widgets = {
+        widget("box-portrait", "Portrait", "login_box"),
+        widget("own", "Portrait"),
+        widget("box-shared", "*", "login_box"),
+    };
+    lockscreen_login_box::ensureWidgets(widgets, noLayouts, outputs);
+    expect(widgets.size() == 3, "a selector-bound and a shared login box need no generated box");
+    {
+      const SharedLayoutResolver resolver(widgets, noLayouts, outputs);
+      const auto* portrait = resolver.loginBoxFor("DP-2");
+      const auto* landscape = resolver.loginBoxFor("DP-1");
+      expect(portrait != nullptr && portrait->id == "box-portrait", "a selector-bound login box is found");
+      expect(landscape != nullptr && landscape->id == "box-shared", "the other output uses the shared login box");
+    }
+
+    // ensureWidgets looks after a shared box too, even though it resolves to no single output.
+    std::vector<DesktopWidgetState> shared = {widget("box-shared", "*", "login_box")};
+    shared[0].rotationRad = 1.0F;
+    shared[0].boxWidth = 5000.0F;
+    shared[0].boxHeight = 10.0F;
+    shared[0].enabled = false;
+    lockscreen_login_box::ensureWidgets(shared, noLayouts, outputs);
+    expect(shared.size() == 1, "a shared login box covers every output");
+    expect(shared[0].rotationRad == 0.0F, "a shared login box is not rotated");
+    expect(shared[0].boxWidth == 5000.0F, "a shared login box keeps its width for each screen to fit");
+    expect(shared[0].enabled, "a shared login box in use is enabled when no other login box is");
+
+    shared[0].boxWidth = 100.0F;
+    lockscreen_login_box::ensureWidgets(shared, noLayouts, outputs);
+    expect(
+        shared[0].boxWidth
+            == lockscreen_login_box::minPanelWidth(lockscreen_login_box::resolveStyle(shared[0].settings).layout),
+        "a shared login box is at least as wide as its layout's minimum"
+    );
+
+    // A box no output uses can't stand in for the enabled one.
+    std::vector<DesktopWidgetState> unused = {
+        widget("box-shared", "*", "login_box"),
+        widget("box-dp1", "DP-1", "login_box"),
+    };
+    unused[0].enabled = false;
+    lockscreen_login_box::ensureWidgets(unused, noLayouts, outputs);
+    expect(unused[0].enabled, "an unused per-output box does not count as the enabled login box");
+  }
+
   constexpr std::string_view kConfig = R"(
 [desktop_widgets]
 widget_order = ["clock", "legacy"]
@@ -333,6 +426,8 @@ int main() {
   testPositionMath();
   testSharedLayout();
   testSelectors();
+  testLoginBoxSelection();
+  testLoginBoxSelectors();
   testConfigRoundTrip(root);
   testValidationWarnings(root);
 
