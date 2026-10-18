@@ -71,6 +71,24 @@ namespace desktop_widgets {
     });
   }
 
+  bool SharedLayoutResolver::bindingHidesShared(std::string_view key) const {
+    const auto it = m_outputLayouts.find(layoutKeyFor(key));
+    return (it == m_outputLayouts.end() || it->second == DesktopWidgetOutputLayout::Auto)
+        && std::ranges::any_of(m_widgets, isSharedWidget)
+        && showsShared(key);
+  }
+
+  WidgetDrop SharedLayoutResolver::dropOn(const DesktopWidgetState& widget, std::string_view key) const {
+    const bool stays = isSharedWidget(widget) ? showsShared(key) : isBoundTo(widget, key);
+    if (stays) {
+      return {.outputName = widget.outputName};
+    }
+    return {
+        .outputName = std::string(key),
+        .pinsShared = !lockscreen_login_box::isLoginBoxWidget(widget) && bindingHidesShared(key),
+    };
+  }
+
   std::vector<std::string> SharedLayoutResolver::outputsFor(const DesktopWidgetState& widget) const {
     std::vector<std::string> outputs;
     for (const auto& key : m_outputKeys) {

@@ -11,6 +11,13 @@
 
 namespace desktop_widgets {
 
+  // Where a widget dropped on an output ends up.
+  struct WidgetDrop {
+    std::string outputName;
+    // The output has to be pinned to the shared layout, which it would otherwise stop showing.
+    bool pinsShared = false;
+  };
+
   // Decides which outputs show which widgets: the single place the shared-layout rule lives. Outputs are
   // named by their output key; a widget's output and the layout table names can also be monitor selectors.
   // Holds references to `widgets`, `outputLayouts` and `outputs`, which must outlive it.
@@ -34,6 +41,16 @@ namespace desktop_widgets {
     // that resolves to it, otherwise the output key itself.
     [[nodiscard]] std::string layoutKeyFor(std::string_view outputKey) const;
 
+    // Whether the widget's output, which can be a selector, resolves to this output.
+    [[nodiscard]] bool isBoundTo(const DesktopWidgetState& widget, std::string_view outputKey) const;
+
+    // Whether binding a widget to the output would make an auto output stop showing the shared layout.
+    [[nodiscard]] bool bindingHidesShared(std::string_view outputKey) const;
+
+    // Dropping `widget` on the output: a shared widget stays shared while the output shows the shared
+    // layout, a bound widget keeps its selector while that resolves to the output, otherwise it binds.
+    [[nodiscard]] WidgetDrop dropOn(const DesktopWidgetState& widget, std::string_view outputKey) const;
+
     // The login box the output uses: the shared one if the output shows the shared layout and one
     // exists, otherwise the one bound to the output. nullptr if there is none.
     [[nodiscard]] const DesktopWidgetState* loginBoxFor(std::string_view outputKey) const;
@@ -43,8 +60,6 @@ namespace desktop_widgets {
     [[nodiscard]] bool showsLoginBox(std::string_view outputKey) const;
 
   private:
-    [[nodiscard]] bool isBoundTo(const DesktopWidgetState& widget, std::string_view outputKey) const;
-
     const std::vector<DesktopWidgetState>& m_widgets;
     const std::unordered_map<std::string, DesktopWidgetOutputLayout>& m_outputLayouts;
     std::span<const WaylandOutput> m_outputs;

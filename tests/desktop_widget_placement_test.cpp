@@ -77,7 +77,15 @@ namespace {
     absolute.cx = 300.0F;
     absolute.cy = 400.0F;
     const auto passthrough = resolveCenter(absolute, kOutW, kOutH, kW, kH);
-    expect(passthrough.cx == 300.0F && passthrough.cy == 400.0F, "absolute positions pass through");
+    expect(passthrough.cx == 300.0F && passthrough.cy == 400.0F, "absolute center positions pass through");
+
+    DesktopWidgetState absoluteTopRight = absolute;
+    absoluteTopRight.anchor = DesktopWidgetAnchor::TopRight;
+    const auto anchored = resolveCenter(absoluteTopRight, kOutW, kOutH, kW, kH);
+    expect(
+        near(anchored.cx, 300.0F - kW * 0.5F) && near(anchored.cy, 400.0F + kH * 0.5F),
+        "an absolute position places the anchor point"
+    );
 
     DesktopWidgetState topRight;
     topRight.positionMode = DesktopWidgetPositionMode::Relative;
@@ -92,20 +100,26 @@ namespace {
         DesktopWidgetAnchor::Left,       DesktopWidgetAnchor::Center, DesktopWidgetAnchor::Right,
         DesktopWidgetAnchor::BottomLeft, DesktopWidgetAnchor::Bottom, DesktopWidgetAnchor::BottomRight,
     };
-    for (const auto anchor : kAnchors) {
-      for (const float rotation : {0.0F, 0.5236F, 1.5708F}) {
-        DesktopWidgetState state;
-        state.positionMode = DesktopWidgetPositionMode::Relative;
-        state.anchor = anchor;
-        state.rotationRad = rotation;
-        state.cx = 0.3F;
-        state.cy = 0.7F;
-        const auto center = resolveCenter(state, kOutW, kOutH, kW, kH);
-        DesktopWidgetState stored = state;
-        stored.cx = 0.0F;
-        stored.cy = 0.0F;
-        storeCenter(stored, kOutW, kOutH, kW, kH, center.cx, center.cy);
-        expect(near(stored.cx, state.cx) && near(stored.cy, state.cy), "storeCenter inverts resolveCenter");
+    for (const auto mode : {DesktopWidgetPositionMode::Absolute, DesktopWidgetPositionMode::Relative}) {
+      for (const auto anchor : kAnchors) {
+        for (const float rotation : {0.0F, 0.5236F, 1.5708F}) {
+          DesktopWidgetState state;
+          state.positionMode = mode;
+          state.anchor = anchor;
+          state.rotationRad = rotation;
+          state.cx = mode == DesktopWidgetPositionMode::Relative ? 0.3F : 576.0F;
+          state.cy = mode == DesktopWidgetPositionMode::Relative ? 0.7F : 756.0F;
+          const auto center = resolveCenter(state, kOutW, kOutH, kW, kH);
+          DesktopWidgetState stored = state;
+          stored.cx = 0.0F;
+          stored.cy = 0.0F;
+          storeCenter(stored, kOutW, kOutH, kW, kH, center.cx, center.cy);
+          const float tolerance = mode == DesktopWidgetPositionMode::Relative ? 1e-4F : 1e-2F;
+          expect(
+              std::abs(stored.cx - state.cx) < tolerance && std::abs(stored.cy - state.cy) < tolerance,
+              "storeCenter inverts resolveCenter"
+          );
+        }
       }
     }
   }
@@ -185,6 +199,42 @@ namespace {
       const SharedLayoutResolver resolver(widgets, layouts, outputs);
       expect(resolver.showsShared("DP-1"), "the output's own key wins over a selector");
     }
+  }
+
+  void testDrop() {
+    using desktop_widgets::SharedLayoutResolver;
+    const std::vector<WaylandOutput> outputs = {
+        makeOutput("DP-1", "Landscape"),
+        makeOutput("DP-2", "Portrait"),
+        makeOutput("DP-3", "Square"),
+    };
+    const std::vector<DesktopWidgetState> widgets = {
+        widget("shared", "*"),
+        widget("bound", "Landscape"),
+        widget("box", "DP-1", "login_box"),
+    };
+    std::unordered_map<std::string, DesktopWidgetOutputLayout> layouts = {
+        {"DP-3", DesktopWidgetOutputLayout::Own},
+    };
+    const SharedLayoutResolver resolver(widgets, layouts, outputs);
+
+    const auto home = resolver.dropOn(widgets[1], "DP-1");
+    expect(home.outputName == "Landscape" && !home.pinsShared, "a drop where the selector resolves keeps the selector");
+
+    const auto bound = resolver.dropOn(widgets[1], "DP-2");
+    expect(bound.outputName == "DP-2", "a drop on another output binds to it");
+    expect(bound.pinsShared, "binding to an auto output showing the shared layout pins it");
+
+    const auto own = resolver.dropOn(widgets[1], "DP-3");
+    expect(own.outputName == "DP-3" && !own.pinsShared, "an own output has no shared layout to keep");
+
+    const auto shared = resolver.dropOn(widgets[0], "DP-2");
+    expect(shared.outputName == "*" && !shared.pinsShared, "a shared widget stays shared on a shared output");
+    const auto sharedOnOwn = resolver.dropOn(widgets[0], "DP-3");
+    expect(sharedOnOwn.outputName == "DP-3", "a shared widget binds on an output without the shared layout");
+
+    const auto box = resolver.dropOn(widgets[2], "DP-2");
+    expect(!box.pinsShared, "a login box does not hide the shared layout");
   }
 
   void testLoginBoxSelection() {
@@ -413,7 +463,7 @@ anchor = "top"
         !warned("desktop_widgets.widget.hanging.cx") && !warned("desktop_widgets.widget.hanging.cy"),
         "the values the editor stores for a widget hanging off an edge do not warn"
     );
-    expect(warned("desktop_widgets.widget.absolute.anchor"), "anchor on an absolute widget warns");
+    expect(!warned("desktop_widgets.widget.absolute.anchor"), "an anchor on an absolute widget is valid");
   }
 
 } // namespace
@@ -426,6 +476,7 @@ int main() {
   testPositionMath();
   testSharedLayout();
   testSelectors();
+  testDrop();
   testLoginBoxSelection();
   testLoginBoxSelectors();
   testConfigRoundTrip(root);
