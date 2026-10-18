@@ -148,6 +148,8 @@ private:
   void rebuildSessionButtons();
   void ensureLayoutChipInPasswordRow();
   [[nodiscard]] std::vector<SessionPanelActionConfig> resolveSessionActions() const;
+  // The login box this output uses. Requires m_config.
+  [[nodiscard]] const DesktopWidgetState* findLoginBox() const;
   [[nodiscard]] lockscreen_login_box::LoginBoxStyle resolveLoginStyle() const;
   [[nodiscard]] bool isLoginBoxEnabled() const;
   [[nodiscard]] std::string resolveStatusText(const lockscreen_login_box::LoginBoxStyle& style, bool& isError) const;

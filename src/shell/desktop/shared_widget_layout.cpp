@@ -9,6 +9,20 @@
 
 namespace desktop_widgets {
 
+  namespace {
+
+    std::vector<const WaylandOutput*> usableOutputs(const WaylandConnection& wayland) {
+      std::vector<const WaylandOutput*> outputs;
+      for (const auto& output : wayland.outputs()) {
+        if (output.done && output.output != nullptr && output.hasUsableGeometry()) {
+          outputs.push_back(&output);
+        }
+      }
+      return outputs;
+    }
+
+  } // namespace
+
   SharedLayoutResolver::SharedLayoutResolver(
       const std::vector<DesktopWidgetState>& widgets,
       const std::unordered_map<std::string, DesktopWidgetOutputLayout>& outputLayouts,
@@ -46,26 +60,59 @@ namespace desktop_widgets {
   std::vector<std::string> SharedLayoutResolver::outputsFor(const DesktopWidgetState& widget) const {
     std::vector<std::string> outputs;
     for (const auto& outputKey : m_outputKeys) {
-      if (isSharedWidget(widget) ? showsShared(outputKey) : boundOutput(widget) == outputKey) {
+      bool shown = false;
+      if (lockscreen_login_box::isLoginBoxWidget(widget)) {
+        const DesktopWidgetState* loginBox = loginBoxFor(outputKey);
+        shown = loginBox != nullptr && loginBox->id == widget.id;
+      } else if (isSharedWidget(widget)) {
+        shown = showsShared(outputKey);
+      } else {
+        shown = boundOutput(widget) == outputKey;
+      }
+      if (shown) {
         outputs.push_back(outputKey);
       }
     }
     return outputs;
   }
 
+  const DesktopWidgetState* SharedLayoutResolver::loginBoxFor(std::string_view outputKey) const {
+    if (showsShared(outputKey)) {
+      const auto shared = std::ranges::find_if(m_widgets, [](const DesktopWidgetState& widget) {
+        return lockscreen_login_box::isLoginBoxWidget(widget) && isSharedWidget(widget);
+      });
+      if (shared != m_widgets.end()) {
+        return &*shared;
+      }
+    }
+    const auto bound = std::ranges::find_if(m_widgets, [&](const DesktopWidgetState& widget) {
+      return lockscreen_login_box::isLoginBoxWidget(widget) && widget.outputName == outputKey;
+    });
+    return bound != m_widgets.end() ? &*bound : nullptr;
+  }
+
+  bool SharedLayoutResolver::showsLoginBox(std::string_view outputKey) const {
+    const auto shows = [this](std::string_view key) {
+      const DesktopWidgetState* loginBox = loginBoxFor(key);
+      return loginBox == nullptr || loginBox->enabled;
+    };
+    return shows(outputKey) || std::ranges::none_of(m_outputKeys, shows);
+  }
+
+  std::vector<std::string> usableOutputKeys(const WaylandConnection& wayland) {
+    std::vector<std::string> keys;
+    for (const auto* output : usableOutputs(wayland)) {
+      keys.push_back(outputKey(*output));
+    }
+    return keys;
+  }
+
   std::vector<WidgetPlacement> resolveWidgetPlacements(
       const WaylandConnection& wayland, const std::vector<DesktopWidgetState>& widgets,
       const std::unordered_map<std::string, DesktopWidgetOutputLayout>& outputLayouts
   ) {
-    std::vector<const WaylandOutput*> outputs;
-    std::vector<std::string> outputKeys;
-    for (const auto& output : wayland.outputs()) {
-      if (!output.done || output.output == nullptr || !output.hasUsableGeometry()) {
-        continue;
-      }
-      outputs.push_back(&output);
-      outputKeys.push_back(outputKey(output));
-    }
+    const std::vector<const WaylandOutput*> outputs = usableOutputs(wayland);
+    const std::vector<std::string> outputKeys = usableOutputKeys(wayland);
 
     const SharedLayoutResolver resolver(widgets, outputLayouts, outputKeys);
     std::vector<WidgetPlacement> placements;

@@ -2,6 +2,7 @@
 
 #include "shell/desktop/desktop_widget_layout.h"
 #include "shell/desktop/desktop_widget_settings_registry.h"
+#include "shell/desktop/shared_widget_layout.h"
 #include "ui/style.h"
 
 #include <algorithm>
@@ -293,18 +294,6 @@ namespace lockscreen_login_box {
     panelY = cy - panelHeightOut * 0.5F;
   }
 
-  const DesktopWidgetState* findForOutput(const std::vector<DesktopWidgetState>& widgets, std::string_view outputKey) {
-    for (const auto& widget : widgets) {
-      if (!isLoginBoxWidget(widget)) {
-        continue;
-      }
-      if (widget.outputName == outputKey) {
-        return &widget;
-      }
-    }
-    return nullptr;
-  }
-
   LoginBoxStyle resolveStyle(const std::unordered_map<std::string, WidgetSettingValue>& settings) {
     LoginBoxStyle style;
     style.layout = resolveLayout(settings);
@@ -399,7 +388,10 @@ namespace lockscreen_login_box {
     clampRadiusSetting(settings, kInputRadiusKey);
   }
 
-  void ensureWidgets(std::vector<DesktopWidgetState>& widgets, const WaylandConnection& wayland) {
+  void ensureWidgets(
+      std::vector<DesktopWidgetState>& widgets,
+      const std::unordered_map<std::string, DesktopWidgetOutputLayout>& outputLayouts, const WaylandConnection& wayland
+  ) {
     std::unordered_set<std::string> outputsWithLoginBox;
     std::erase_if(widgets, [&](const DesktopWidgetState& widget) {
       if (!isLoginBoxWidget(widget)) {
@@ -436,12 +428,16 @@ namespace lockscreen_login_box {
       desktop_widgets::clampStateToOutput(wayland, widget, widget.boxWidth, widget.boxHeight);
     }
 
+    // Login boxes do not affect which outputs show the shared layout, so inserting them below is safe.
+    const desktop_widgets::SharedLayoutResolver resolver(
+        widgets, outputLayouts, desktop_widgets::usableOutputKeys(wayland)
+    );
     for (const auto& output : wayland.outputs()) {
       if (!output.done || output.output == nullptr || !output.hasUsableGeometry()) {
         continue;
       }
       const std::string outputKey = desktop_widgets::outputKey(output);
-      if (outputsWithLoginBox.contains(outputKey)) {
+      if (outputsWithLoginBox.contains(outputKey) || resolver.loginBoxFor(outputKey) != nullptr) {
         continue;
       }
 

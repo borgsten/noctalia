@@ -12,6 +12,7 @@
 #include "render/core/shared_texture_cache.h"
 #include "render/render_context.h"
 #include "render/scene/wallpaper_node.h"
+#include "shell/desktop/shared_widget_layout.h"
 #include "shell/lockscreen/lockscreen_login_box.h"
 #include "shell/lockscreen/lockscreen_session_actions.h"
 #include "shell/lockscreen/lockscreen_widgets_host.h"
@@ -1272,16 +1273,14 @@ void LockSurface::layoutScene(std::uint32_t width, std::uint32_t height) {
   float panelX = std::round((sw - panelWidth) * 0.5F);
   float panelY = std::max(Style::spaceLg, sh - panelHeight - 84.0F);
   if (m_config != nullptr) {
-    if (const DesktopWidgetState* loginBox =
-            lockscreen_login_box::findForOutput(m_config->config().lockscreenWidgets.widgets, m_outputKey);
-        loginBox != nullptr) {
-      float cx = loginBox->cx;
-      float cy = loginBox->cy;
+    if (const DesktopWidgetState* loginBox = findLoginBox(); loginBox != nullptr) {
       // Fit height to visible chrome so disabling media/weather/sessions does not leave empty panel space.
       panelHeight = lockscreen_login_box::defaultPanelHeight(loginStyle.layout, showSession, showInfoConfigured);
       panelWidth = lockscreen_login_box::resolvePanelWidth(sw, loginBox->boxWidth, loginStyle.layout);
-      panelX = cx - panelWidth * 0.5F;
-      panelY = cy - panelHeight * 0.5F;
+      const WidgetTransformClampResult center =
+          desktop_widgets::resolveCenter(*loginBox, sw, sh, panelWidth, panelHeight);
+      panelX = center.cx - panelWidth * 0.5F;
+      panelY = center.cy - panelHeight * 0.5F;
     }
   }
 
@@ -1863,28 +1862,32 @@ void LockSurface::syncRegularExtras(Renderer& renderer) {
   }
 }
 
+namespace {
+
+  desktop_widgets::SharedLayoutResolver
+  loginBoxResolver(const ConfigService& config, const WaylandConnection& wayland) {
+    const LockscreenWidgetsConfig& widgets = config.config().lockscreenWidgets;
+    return {widgets.widgets, widgets.outputLayouts, desktop_widgets::usableOutputKeys(wayland)};
+  }
+
+} // namespace
+
+const DesktopWidgetState* LockSurface::findLoginBox() const {
+  return loginBoxResolver(*m_config, m_connection).loginBoxFor(m_outputKey);
+}
+
 lockscreen_login_box::LoginBoxStyle LockSurface::resolveLoginStyle() const {
   if (m_config == nullptr) {
     return lockscreen_login_box::LoginBoxStyle{};
   }
-  if (const DesktopWidgetState* loginBox =
-          lockscreen_login_box::findForOutput(m_config->config().lockscreenWidgets.widgets, m_outputKey);
-      loginBox != nullptr) {
+  if (const DesktopWidgetState* loginBox = findLoginBox(); loginBox != nullptr) {
     return lockscreen_login_box::resolveStyle(loginBox->settings);
   }
   return lockscreen_login_box::LoginBoxStyle{};
 }
 
 bool LockSurface::isLoginBoxEnabled() const {
-  if (m_config == nullptr) {
-    return true;
-  }
-  if (const DesktopWidgetState* loginBox =
-          lockscreen_login_box::findForOutput(m_config->config().lockscreenWidgets.widgets, m_outputKey);
-      loginBox != nullptr) {
-    return loginBox->enabled;
-  }
-  return true;
+  return m_config == nullptr || loginBoxResolver(*m_config, m_connection).showsLoginBox(m_outputKey);
 }
 
 std::string LockSurface::resolveStatusText(const lockscreen_login_box::LoginBoxStyle& style, bool& isError) const {

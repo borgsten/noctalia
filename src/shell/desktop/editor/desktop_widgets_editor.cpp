@@ -248,7 +248,7 @@ void DesktopWidgetsEditor::setExitRequestedCallback(std::function<void()> callba
 void DesktopWidgetsEditor::open(const DesktopWidgetsEditorSnapshot& snapshot) {
   m_snapshot = snapshot;
   if (m_profile.showLockscreenLoginPreview && m_wayland != nullptr) {
-    lockscreen_login_box::ensureWidgets(m_snapshot.widgets, *m_wayland);
+    lockscreen_login_box::ensureWidgets(m_snapshot.widgets, m_snapshot.outputLayouts, *m_wayland);
   }
   m_open = true;
   clearSelection();

@@ -143,9 +143,6 @@ namespace lockscreen_login_box {
   // Height flags from settings.
   [[nodiscard]] bool styleShowsInfoExtras(const LoginBoxStyle& style) noexcept;
 
-  [[nodiscard]] const DesktopWidgetState*
-  findForOutput(const std::vector<DesktopWidgetState>& widgets, std::string_view outputKey);
-
   [[nodiscard]] LoginBoxStyle resolveStyle(const std::unordered_map<std::string, WidgetSettingValue>& settings);
   void applyDefaultSettings(
       std::unordered_map<std::string, WidgetSettingValue>& settings, desktop_settings::DesktopWidgetSettingsScope scope
@@ -153,6 +150,10 @@ namespace lockscreen_login_box {
   void applyAllDefaultSettings(std::unordered_map<std::string, WidgetSettingValue>& settings);
   void normalizeSettings(std::unordered_map<std::string, WidgetSettingValue>& settings);
 
-  void ensureWidgets(std::vector<DesktopWidgetState>& widgets, const WaylandConnection& wayland);
+  // Keeps one login box per output, creating the missing ones, except on outputs that use the shared one.
+  void ensureWidgets(
+      std::vector<DesktopWidgetState>& widgets,
+      const std::unordered_map<std::string, DesktopWidgetOutputLayout>& outputLayouts, const WaylandConnection& wayland
+  );
 
 } // namespace lockscreen_login_box

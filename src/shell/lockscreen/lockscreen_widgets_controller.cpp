@@ -387,7 +387,7 @@ void LockscreenWidgetsController::normalizeSnapshot() {
     return;
   }
 
-  lockscreen_login_box::ensureWidgets(m_snapshot.widgets, *m_wayland);
+  lockscreen_login_box::ensureWidgets(m_snapshot.widgets, m_snapshot.outputLayouts, *m_wayland);
 
   std::uint64_t maxCounter = 0;
   for (const auto& widget : m_snapshot.widgets) {
