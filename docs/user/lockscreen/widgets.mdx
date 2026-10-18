@@ -53,7 +53,9 @@ Same interaction model as desktop widget edit mode (move, rotate, resize, grid s
 
 ## Config format
 
-The schema mirrors `[desktop_widgets]`: `enabled`, `schema_version`, optional `[lockscreen_widgets.grid]`, `widget_order`, and `[lockscreen_widgets.widget.<id>]` tables with `type`, `output`, `cx`, `cy`, `box_width`, `box_height`, `rotation`, `enabled`, and `[lockscreen_widgets.widget.<id>.settings]`.
+The schema mirrors `[desktop_widgets]`: `enabled`, `schema_version`, optional `[lockscreen_widgets.grid]`, `widget_order`, and `[lockscreen_widgets.widget.<id>]` tables with `type`, `output`, `position`, `anchor`, `cx`, `cy`, `box_width`, `box_height`, `rotation`, `enabled`, and `[lockscreen_widgets.widget.<id>.settings]`.
+
+Relative positions, anchors and the shared layout (`output = "*"` with `[lockscreen_widgets.output.<name>] layout`) work as for [desktop widgets](/noctalia/desktop/widgets/#positioning). The lockscreen has its own `layout` per monitor, independent of the desktop.
 
 `output` accepts an exact connector name or a unique monitor description, make, model, or serial selector, with the same case-sensitive, whole-token matching as bar and dock overrides. See [Desktop widgets - Monitor matching](/noctalia/desktop/widgets/#monitor-matching). The selector stays in the saved configuration when connectors change, so placement follows the matching monitor. Selectors matching multiple monitors are inactive and logged as warnings; use a more specific description or serial.
 
@@ -66,6 +68,24 @@ output = "HP E273q"
 ```
 
 Noctalia reuses a matching login box instead of creating a default box for its new connector. If several login boxes target the same monitor, the first matching box in widget order is used. Newly generated defaults are appended after saved boxes, so a saved selector takes priority when its monitor returns or its identity metadata arrives. Login boxes for disconnected monitors are retained with their placement and size, so reconnecting restores the layout. Remove unused boxes explicitly from your configuration. A connected monitor without a matching box still receives a default login box, and at least one connected login box remains enabled.
+
+### Shared login box
+
+Each monitor shows one login box. A login box with `output = "*"` is used on every monitor that shows the shared layout; the other monitors use their own box, which is created when missing. Login boxes don't count as a monitor's own widgets for `layout = "auto"`.
+
+```toml
+[lockscreen_widgets.widget."lockscreen-login-box@*"]
+type     = "login_box"
+output   = "*"
+position = "relative"
+anchor   = "bottom"
+cx       = 0.5
+cy       = 0.92
+```
+
+To share a login box from the editor, select it and turn on **Show on All Monitors**. Its position and settings are copied to the shared box, which is made relative so that it lands at the same spot on monitors of any size, and the other monitors' own boxes stay in `settings.toml`, unused. Turning it off moves the shared box back to the monitor the toolbar is on, and the other monitors get their own boxes back.
+
+The shared login box can be moved and styled in the editor on the monitors that use it. A login box stays on its monitor when dragged. If no monitor the lock screen uses (see `lockscreen.monitors`) would show an enabled login box, those monitors show their box anyway, so the screen can always be unlocked.
 
 ### Login box settings
 
