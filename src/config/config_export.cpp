@@ -227,21 +227,15 @@ namespace config_export {
       return table;
     }
 
-    toml::table widgetsPlacementTable(
-        bool enabled, std::int32_t schemaVersion, const DesktopWidgetsGridState& grid,
-        const std::vector<DesktopWidgetState>& widgets
-    ) {
+    // DesktopWidgetsConfig and LockscreenWidgetsConfig share the placement fields.
+    template <typename WidgetsConfig> toml::table widgetsPlacementTable(const WidgetsConfig& widgets) {
       toml::table table;
-      table.insert_or_assign("enabled", enabled);
-      table.insert_or_assign("schema_version", static_cast<std::int64_t>(schemaVersion));
-      noctalia::config::writeWidgetsPlacement(table, grid, widgets, noctalia::config::WidgetsPlacementStyle::Export);
-      return table;
-    }
-
-    toml::table desktopWidgetsTable(const DesktopWidgetsConfig& desktopWidgets) {
-      return widgetsPlacementTable(
-          desktopWidgets.enabled, desktopWidgets.schemaVersion, desktopWidgets.grid, desktopWidgets.widgets
+      table.insert_or_assign("enabled", widgets.enabled);
+      table.insert_or_assign("schema_version", static_cast<std::int64_t>(widgets.schemaVersion));
+      noctalia::config::writeWidgetsPlacement(
+          table, widgets.grid, widgets.widgets, widgets.outputLayouts, noctalia::config::WidgetsPlacementStyle::Export
       );
+      return table;
     }
 
   } // namespace
@@ -254,14 +248,8 @@ namespace config_export {
     }
 
     // Root keys whose shape is not a plain section schema.
-    root.insert_or_assign(
-        "lockscreen_widgets",
-        widgetsPlacementTable(
-            config.lockscreenWidgets.enabled, config.lockscreenWidgets.schemaVersion, config.lockscreenWidgets.grid,
-            config.lockscreenWidgets.widgets
-        )
-    );
-    root.insert_or_assign("desktop_widgets", desktopWidgetsTable(config.desktopWidgets));
+    root.insert_or_assign("lockscreen_widgets", widgetsPlacementTable(config.lockscreenWidgets));
+    root.insert_or_assign("desktop_widgets", widgetsPlacementTable(config.desktopWidgets));
 
     toml::table barRoot;
     toml::array barOrder;

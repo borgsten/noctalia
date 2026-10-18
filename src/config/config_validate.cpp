@@ -520,6 +520,34 @@ namespace noctalia::config {
       }
     }
 
+    // The parser falls back to the defaults on bad values, which would silently turn a relative
+    // cx = 0.5 into an absolute half pixel, so warn about them here.
+    void validatePlacedWidgetPosition(const toml::table& widget, const std::string& base, schema::Diagnostics& diag) {
+      bool relative = false;
+      if (const auto position = widget["position"].value<std::string>()) {
+        const auto mode = noctalia::config::parsePositionMode(*position);
+        if (!mode.has_value()) {
+          diag.warn(base + ".position", "unknown position \"" + *position + "\" (expected absolute or relative)");
+        }
+        relative = mode == DesktopWidgetPositionMode::Relative;
+      }
+      if (const auto anchor = widget["anchor"].value<std::string>()) {
+        if (!noctalia::config::parseAnchor(*anchor).has_value()) {
+          diag.warn(base + ".anchor", "unknown anchor \"" + *anchor + "\"");
+        } else if (!relative) {
+          diag.warn(base + ".anchor", "anchor only applies to widgets with position = \"relative\"");
+        }
+      }
+      if (!relative) {
+        return;
+      }
+      for (const std::string_view key : {"cx", "cy"}) {
+        if (const auto value = widget[key].value<double>(); value.has_value() && (*value < 0.0 || *value > 1.0)) {
+          diag.warn(base + "." + std::string(key), "relative position is outside 0..1");
+        }
+      }
+    }
+
     enum class WidgetsSection : std::uint8_t {
       Desktop,
       Lockscreen,
@@ -552,6 +580,26 @@ namespace noctalia::config {
           }
         }
       }
+      if (const auto* outputs = (*section)["output"].as_table()) {
+        for (const auto& [outputName, node] : *outputs) {
+          const std::string base = sectionPrefix + "output." + std::string(outputName.str());
+          const auto* entry = node.as_table();
+          if (entry == nullptr) {
+            diag.warn(base, "expected a table");
+            continue;
+          }
+          for (const auto& [key, value] : *entry) {
+            (void)value;
+            if (!std::ranges::contains(noctalia::config::kWidgetsOutputKeys, key.str())) {
+              diag.warn(base + "." + std::string(key.str()), "unknown setting");
+            }
+          }
+          if (const auto layout = (*entry)["layout"].value<std::string>();
+              layout.has_value() && !noctalia::config::parseOutputLayout(*layout).has_value()) {
+            diag.warn(base + ".layout", "unknown layout \"" + *layout + "\" (expected auto, shared or own)");
+          }
+        }
+      }
       const auto* widgets = (*section)["widget"].as_table();
       if (widgets == nullptr) {
         return;
@@ -569,6 +617,7 @@ namespace noctalia::config {
             diag.warn(base + "." + std::string(key.str()), "unknown setting");
           }
         }
+        validatePlacedWidgetPosition(*tbl, base, diag);
         const std::string type = (*tbl)["type"].value<std::string>().value_or("");
         const bool isBuiltIn =
             std::ranges::any_of(desktop_settings::desktopWidgetTypeSpecs(), [type](const auto& spec) {

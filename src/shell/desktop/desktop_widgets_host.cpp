@@ -8,6 +8,7 @@
 #include "render/scene/node.h"
 #include "scripting/plugin_id.h"
 #include "shell/desktop/desktop_widget_layout.h"
+#include "shell/desktop/shared_widget_layout.h"
 #include "shell/desktop/widget_transform.h"
 #include "shell/wallpaper/wallpaper_geometry.h"
 #include "time/time_format.h"
@@ -246,8 +247,8 @@ void DesktopWidgetsHost::syncInstances() {
     return;
   }
 
-  // Explicitly bound widgets are hidden while their target output is unavailable.
-  const auto placements = desktop_widgets::resolveWidgetPlacements(*m_wayland, m_snapshot.widgets);
+  const auto placements =
+      desktop_widgets::resolveWidgetPlacements(*m_wayland, m_snapshot.widgets, m_snapshot.outputLayouts);
 
   std::erase_if(m_instances, [&placements](const auto& instance) {
     const auto* placement =

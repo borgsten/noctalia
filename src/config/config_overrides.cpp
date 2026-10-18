@@ -136,14 +136,16 @@ namespace {
     return a.enabled == b.enabled
         && a.schemaVersion == b.schemaVersion
         && a.grid == b.grid
-        && vectorEqual(a.widgets, b.widgets, desktopWidgetEqual);
+        && vectorEqual(a.widgets, b.widgets, desktopWidgetEqual)
+        && a.outputLayouts == b.outputLayouts;
   }
 
   bool lockscreenWidgetsConfigEqual(const LockscreenWidgetsConfig& a, const LockscreenWidgetsConfig& b) {
     return a.enabled == b.enabled
         && a.schemaVersion == b.schemaVersion
         && a.grid == b.grid
-        && vectorEqual(a.widgets, b.widgets, desktopWidgetEqual);
+        && vectorEqual(a.widgets, b.widgets, desktopWidgetEqual)
+        && a.outputLayouts == b.outputLayouts;
   }
 
   // Compares two bars ignoring their monitor-override lists (those are resolved + compared separately by
@@ -1121,7 +1123,7 @@ bool ConfigService::setDesktopWidgetsState(const DesktopWidgetsConfig& desktopWi
 
   desktopWidgetsTbl->insert_or_assign("schema_version", static_cast<std::int64_t>(desktopWidgets.schemaVersion));
   noctalia::config::writeWidgetsPlacement(
-      *desktopWidgetsTbl, desktopWidgets.grid, desktopWidgets.widgets,
+      *desktopWidgetsTbl, desktopWidgets.grid, desktopWidgets.widgets, desktopWidgets.outputLayouts,
       noctalia::config::WidgetsPlacementStyle::Overrides
   );
 
@@ -1157,7 +1159,8 @@ bool ConfigService::setLockscreenWidgetsState(const LockscreenWidgetsConfig& loc
   sectionTbl->insert_or_assign("enabled", lockscreenWidgets.enabled);
   sectionTbl->insert_or_assign("schema_version", static_cast<std::int64_t>(lockscreenWidgets.schemaVersion));
   noctalia::config::writeWidgetsPlacement(
-      *sectionTbl, lockscreenWidgets.grid, lockscreenWidgets.widgets, noctalia::config::WidgetsPlacementStyle::Overrides
+      *sectionTbl, lockscreenWidgets.grid, lockscreenWidgets.widgets, lockscreenWidgets.outputLayouts,
+      noctalia::config::WidgetsPlacementStyle::Overrides
   );
 
   if (!validateOverrideMutation(next)) {

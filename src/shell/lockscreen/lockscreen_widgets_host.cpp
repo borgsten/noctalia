@@ -6,6 +6,7 @@
 #include "render/scene/node.h"
 #include "scripting/plugin_id.h"
 #include "shell/desktop/desktop_widget_layout.h"
+#include "shell/desktop/shared_widget_layout.h"
 #include "shell/lockscreen/lock_screen.h"
 #include "shell/lockscreen/lock_surface.h"
 #include "shell/lockscreen/lockscreen_login_box.h"
@@ -134,7 +135,8 @@ void LockscreenWidgetsHost::syncSurfaces(LockScreen& lockScreen) {
     return;
   }
 
-  const auto placements = desktop_widgets::resolveWidgetPlacements(*m_wayland, m_snapshot.widgets);
+  const auto placements =
+      desktop_widgets::resolveWidgetPlacements(*m_wayland, m_snapshot.widgets, m_snapshot.outputLayouts);
 
   // Detach first and erase afterwards: detachFromSurface() walks m_instances, which must not be
   // mid-erase at that point.

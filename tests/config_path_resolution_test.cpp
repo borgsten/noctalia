@@ -97,6 +97,11 @@ int main() {
   expectUnknown({"desktop_widgets", "grid", "cell_szie"});
   expectUnknown({"desktop_widgets", "widget", "clock1", "bogus"});
   expectUnknown({"lockscreen_widgets", "widget", "clock1", "bogus"});
+  expectKnown({"desktop_widgets", "widget", "clock1", "position"});
+  expectKnown({"desktop_widgets", "widget", "clock1", "anchor"});
+  expectKnown({"desktop_widgets", "output", "DP-1", "layout"});
+  expectKnown({"lockscreen_widgets", "output", "DP-1", "layout"});
+  expectUnknown({"desktop_widgets", "output", "DP-1", "bogus"});
   expectUnknown({"bar", "default", "thicknesss"});
   expectUnknown({"bar", "default", "monitor", "DP-1", "bogus"});
   expectUnknown({});

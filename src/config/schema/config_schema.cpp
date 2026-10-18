@@ -1875,10 +1875,13 @@ namespace noctalia::config::schema {
     }
 
     // Paths under [desktop_widgets] / [lockscreen_widgets] that the section schema does not cover: the
-    // widget order and the per-widget tables.
+    // widget order, the per-output layout tables and the per-widget tables.
     bool isKnownPlacedWidgetPath(const std::vector<std::string>& path) {
       if (path.size() == 2 && path[1] == "widget_order") {
         return true;
+      }
+      if (path.size() >= 2 && path[1] == "output") {
+        return path.size() <= 3 || (path.size() == 4 && std::ranges::contains(kWidgetsOutputKeys, path[3]));
       }
       if (path.size() < 2 || path[1] != "widget") {
         return false;

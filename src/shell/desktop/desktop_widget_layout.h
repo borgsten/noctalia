@@ -76,12 +76,22 @@ namespace desktop_widgets {
     return static_cast<float>(std::max(1, output.effectiveLogicalHeight()));
   }
 
+  inline bool isSharedWidget(const DesktopWidgetState& state) { return state.outputName == kSharedWidgetOutput; }
+
+  inline bool isRelativeWidget(const DesktopWidgetState& state) {
+    return state.positionMode == DesktopWidgetPositionMode::Relative;
+  }
+
   class PlacementMapper {
   public:
     [[nodiscard]] bool
     remapForOutputChange(const WaylandConnection& wayland, std::vector<DesktopWidgetState>& widgets) const {
       bool changed = false;
       for (auto& widget : widgets) {
+        // Relative positions already follow the output size. Shared widgets have no single output.
+        if (isRelativeWidget(widget) || isSharedWidget(widget)) {
+          continue;
+        }
         const WaylandOutput* output = resolveStateOutput(wayland, widget);
         if (output == nullptr) {
           continue;
@@ -111,6 +121,9 @@ namespace desktop_widgets {
 
     void rebaseForCurrentOutputs(const WaylandConnection& wayland, std::vector<DesktopWidgetState>& widgets) const {
       for (auto& widget : widgets) {
+        if (isRelativeWidget(widget) || isSharedWidget(widget)) {
+          continue;
+        }
         const WaylandOutput* output = resolveStateOutput(wayland, widget);
         if (output == nullptr) {
           continue;
@@ -121,22 +134,92 @@ namespace desktop_widgets {
     }
   };
 
+  // Offset of the anchor point from the widget's center, as a fraction of its rotated AABB.
+  struct AnchorFactors {
+    float x = 0.0F;
+    float y = 0.0F;
+  };
+
+  inline AnchorFactors anchorFactors(DesktopWidgetAnchor anchor) {
+    switch (anchor) {
+    case DesktopWidgetAnchor::TopLeft:
+      return {-0.5F, -0.5F};
+    case DesktopWidgetAnchor::Top:
+      return {0.0F, -0.5F};
+    case DesktopWidgetAnchor::TopRight:
+      return {0.5F, -0.5F};
+    case DesktopWidgetAnchor::Left:
+      return {-0.5F, 0.0F};
+    case DesktopWidgetAnchor::Center:
+      return {0.0F, 0.0F};
+    case DesktopWidgetAnchor::Right:
+      return {0.5F, 0.0F};
+    case DesktopWidgetAnchor::BottomLeft:
+      return {-0.5F, 0.5F};
+    case DesktopWidgetAnchor::Bottom:
+      return {0.0F, 0.5F};
+    case DesktopWidgetAnchor::BottomRight:
+      return {0.5F, 0.5F};
+    }
+    return {};
+  }
+
+  // The widget's center in logical px on an output of the given size. Absolute positions are already
+  // centers; relative ones place the anchor point of the rotated AABB at a fraction of the output.
+  inline WidgetTransformClampResult resolveCenter(
+      const DesktopWidgetState& state, float outputWidth, float outputHeight, float intrinsicWidth,
+      float intrinsicHeight
+  ) {
+    if (!isRelativeWidget(state)) {
+      return {state.cx, state.cy};
+    }
+    const WidgetTransformBounds bounds =
+        computeWidgetTransformBounds(0.0F, 0.0F, intrinsicWidth, intrinsicHeight, 1.0F, state.rotationRad);
+    const AnchorFactors factors = anchorFactors(state.anchor);
+    return {
+        state.cx * outputWidth - factors.x * bounds.aabbWidth,
+        state.cy * outputHeight - factors.y * bounds.aabbHeight,
+    };
+  }
+
+  // Inverse of resolveCenter: stores a center in logical px into the state's own position form.
+  inline void storeCenter(
+      DesktopWidgetState& state, float outputWidth, float outputHeight, float intrinsicWidth, float intrinsicHeight,
+      float centerX, float centerY
+  ) {
+    if (!isRelativeWidget(state)) {
+      state.cx = centerX;
+      state.cy = centerY;
+      return;
+    }
+    const WidgetTransformBounds bounds =
+        computeWidgetTransformBounds(0.0F, 0.0F, intrinsicWidth, intrinsicHeight, 1.0F, state.rotationRad);
+    const AnchorFactors factors = anchorFactors(state.anchor);
+    state.cx = (centerX + factors.x * bounds.aabbWidth) / std::max(1.0F, outputWidth);
+    state.cy = (centerY + factors.y * bounds.aabbHeight) / std::max(1.0F, outputHeight);
+  }
+
   // Single source of truth for desktop widget coordinate clamping. Edit mode, default mode, and
   // snapshot normalization all route through here so the visibility rule stays identical. Returns the
-  // center to draw the widget at on `output`: state.cx/cy constrained so that at least
+  // center to draw the widget at on `output`: the resolved center constrained so that at least
   // kDesktopWidgetMinVisibleFraction of the widget's rotated AABB remains on screen. The caller
   // passes the widget's current box size as intrinsicWidth/intrinsicHeight, so no extra scale
   // multiplier is applied here.
   inline WidgetTransformClampResult clampCenterToOutput(
       const DesktopWidgetState& state, const WaylandOutput& output, float intrinsicWidth, float intrinsicHeight
   ) {
+    const float outputWidth = outputLogicalWidth(output);
+    const float outputHeight = outputLogicalHeight(output);
+    const WidgetTransformClampResult center =
+        resolveCenter(state, outputWidth, outputHeight, intrinsicWidth, intrinsicHeight);
     return clampWidgetCenterToOutput(
-        state.cx, state.cy, intrinsicWidth, intrinsicHeight, 1.0F, state.rotationRad, outputLogicalWidth(output),
-        outputLogicalHeight(output), kDesktopWidgetMinVisibleFraction
+        center.cx, center.cy, intrinsicWidth, intrinsicHeight, 1.0F, state.rotationRad, outputWidth, outputHeight,
+        kDesktopWidgetMinVisibleFraction
     );
   }
 
-  // Resolves the widget's effective output and writes the clamped center back into the state.
+  // Resolves the widget's effective output and writes the clamped center back into the state, in the
+  // state's own position form.
   inline const WaylandOutput* clampStateToOutput(
       const WaylandConnection& wayland, DesktopWidgetState& state, float intrinsicWidth, float intrinsicHeight
   ) {
@@ -145,8 +228,10 @@ namespace desktop_widgets {
       return nullptr;
     }
     const WidgetTransformClampResult clamped = clampCenterToOutput(state, *output, intrinsicWidth, intrinsicHeight);
-    state.cx = clamped.cx;
-    state.cy = clamped.cy;
+    storeCenter(
+        state, outputLogicalWidth(*output), outputLogicalHeight(*output), intrinsicWidth, intrinsicHeight, clamped.cx,
+        clamped.cy
+    );
     return output;
   }
 
@@ -156,24 +241,6 @@ namespace desktop_widgets {
     const WaylandOutput* output = nullptr;
     std::string outputKey;
   };
-
-  // The enabled widgets that can be shown on a current output, in config order. Widgets bound to an
-  // unavailable output are left out.
-  inline std::vector<WidgetPlacement>
-  resolveWidgetPlacements(const WaylandConnection& wayland, const std::vector<DesktopWidgetState>& widgets) {
-    std::vector<WidgetPlacement> placements;
-    for (const auto& widget : widgets) {
-      if (!widget.enabled) {
-        continue;
-      }
-      const WaylandOutput* output = resolveStateOutput(wayland, widget);
-      if (output == nullptr) {
-        continue;
-      }
-      placements.push_back(WidgetPlacement{.state = &widget, .output = output, .outputKey = outputKey(*output)});
-    }
-    return placements;
-  }
 
   inline const WidgetPlacement*
   findPlacement(const std::vector<WidgetPlacement>& placements, std::string_view id, std::string_view outputKey) {

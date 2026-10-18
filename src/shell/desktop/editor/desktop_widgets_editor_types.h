@@ -25,6 +25,7 @@ toDesktopWidgetsEditorSnapshot(const LockscreenWidgetsConfig& config) {
       .schemaVersion = config.schemaVersion,
       .grid = config.grid,
       .widgets = config.widgets,
+      .outputLayouts = config.outputLayouts,
   };
 }
 
@@ -35,5 +36,6 @@ fromDesktopWidgetsEditorSnapshot(const DesktopWidgetsEditorSnapshot& snapshot) {
       .schemaVersion = snapshot.schemaVersion,
       .grid = snapshot.grid,
       .widgets = snapshot.widgets,
+      .outputLayouts = snapshot.outputLayouts,
   };
 }

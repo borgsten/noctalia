@@ -764,6 +764,37 @@ struct DesktopWidgetsGridState {
   bool operator==(const DesktopWidgetsGridState&) const = default;
 };
 
+enum class DesktopWidgetPositionMode : std::uint8_t {
+  // cx/cy are the widget's center in logical px.
+  Absolute,
+  // cx/cy are fractions of the output's logical size, placing the widget's anchor point.
+  Relative,
+};
+
+// Point of the widget's rotated bounding box that a relative position places.
+enum class DesktopWidgetAnchor : std::uint8_t {
+  TopLeft,
+  Top,
+  TopRight,
+  Left,
+  Center,
+  Right,
+  BottomLeft,
+  Bottom,
+  BottomRight,
+};
+
+// Whether an output shows the shared layout (widgets with output = "*").
+enum class DesktopWidgetOutputLayout : std::uint8_t {
+  // Only if no enabled widget other than a login box is bound to the output.
+  Auto,
+  Shared,
+  Own,
+};
+
+// `output` value of a widget in the shared layout.
+inline constexpr std::string_view kSharedWidgetOutput = "*";
+
 struct DesktopWidgetState {
   std::string id;
   std::string type = "clock";
@@ -782,6 +813,8 @@ struct DesktopWidgetState {
   bool flipX = false;
   bool flipY = false;
   bool enabled = true;
+  DesktopWidgetPositionMode positionMode = DesktopWidgetPositionMode::Absolute;
+  DesktopWidgetAnchor anchor = DesktopWidgetAnchor::Center;
   std::unordered_map<std::string, WidgetSettingValue> settings;
 
   bool operator==(const DesktopWidgetState&) const = default;
@@ -792,6 +825,8 @@ struct DesktopWidgetsConfig {
   std::int32_t schemaVersion = 2;
   DesktopWidgetsGridState grid;
   std::vector<DesktopWidgetState> widgets;
+  // Keyed by output connector name. Missing outputs are Auto.
+  std::unordered_map<std::string, DesktopWidgetOutputLayout> outputLayouts;
 
   bool operator==(const DesktopWidgetsConfig&) const = default;
 };
@@ -801,6 +836,8 @@ struct LockscreenWidgetsConfig {
   std::int32_t schemaVersion = 2;
   DesktopWidgetsGridState grid;
   std::vector<DesktopWidgetState> widgets;
+  // Keyed by output connector name. Missing outputs are Auto.
+  std::unordered_map<std::string, DesktopWidgetOutputLayout> outputLayouts;
 
   bool operator==(const LockscreenWidgetsConfig&) const = default;
 };
