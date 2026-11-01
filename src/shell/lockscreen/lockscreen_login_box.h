@@ -10,6 +10,7 @@
 #include <unordered_map>
 #include <vector>
 
+class LayerSurface;
 struct WaylandOutput;
 
 namespace desktop_settings {
@@ -160,6 +161,31 @@ namespace lockscreen_login_box {
       std::vector<DesktopWidgetState>& widgets,
       const std::unordered_map<std::string, DesktopWidgetOutputLayout>& outputLayouts,
       std::span<const WaylandOutput> outputs
+  );
+
+  // Whether the lock screen is interactive on the output, given lockscreen.monitors. With none of the listed monitors
+  // connected, every output is.
+  [[nodiscard]] bool isLockOutput(
+      std::span<const std::string> lockMonitors, std::span<const WaylandOutput> outputs, const WaylandOutput& output
+  );
+
+  // The box width to lay a widget out with on an editor surface. A login box is fitted to each screen, as on the lock
+  // screen, so that its selection frame matches the panel that is drawn.
+  [[nodiscard]] float boxWidthOnSurface(const DesktopWidgetState& state, const LayerSurface* surface);
+
+  // Makes a copy of the box `sourceId` the shared login box, replacing any existing one. The copy is relative and
+  // stays where the box is on its output, so that it lands at the same spot on outputs of any size. Per-output boxes
+  // are kept: they stop being used while the shared box applies and are used again once it is removed. Returns the
+  // shared box's id, or an empty string if there is no such box.
+  std::string shareBox(
+      std::vector<DesktopWidgetState>& widgets, std::span<const WaylandOutput> outputs, const std::string& sourceId
+  );
+
+  // Moves the shared box onto the output, replacing that output's own box, and removes it from the others, which
+  // go back to their own boxes. Returns the id of the output's box, or an empty string if there is no shared box or
+  // no such output.
+  std::string unshareBox(
+      std::vector<DesktopWidgetState>& widgets, std::span<const WaylandOutput> outputs, std::string_view outputKey
   );
 
 } // namespace lockscreen_login_box

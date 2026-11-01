@@ -234,7 +234,7 @@ namespace {
     expect(sharedOnOwn.outputName == "DP-3", "a shared widget binds on an output without the shared layout");
 
     const auto box = resolver.dropOn(widgets[2], "DP-2");
-    expect(!box.pinsShared, "a login box does not hide the shared layout");
+    expect(box.outputName == "DP-1" && !box.pinsShared, "a login box stays on its output");
   }
 
   void testLoginBoxSelection() {
@@ -327,6 +327,118 @@ namespace {
     unused[0].enabled = false;
     lockscreen_login_box::ensureWidgets(unused, noLayouts, outputs);
     expect(unused[0].enabled, "an unused per-output box does not count as the enabled login box");
+  }
+
+  void testShareLoginBox() {
+    using desktop_widgets::SharedLayoutResolver;
+    const std::vector<WaylandOutput> outputs = {makeOutput("DP-1", "Landscape"), makeOutput("DP-2", "Portrait")};
+    const std::unordered_map<std::string, DesktopWidgetOutputLayout> noLayouts;
+
+    std::vector<DesktopWidgetState> widgets = {
+        widget("box-landscape", "Landscape", "login_box"),
+        widget("box-dp2", "DP-2", "login_box"),
+    };
+    widgets[0].cx = 100.0F;
+    widgets[0].placementWidth = 1920.0F;
+    widgets[1].cx = 700.0F;
+    const auto customised = widgets;
+
+    expect(lockscreen_login_box::shareBox(widgets, outputs, "missing").empty(), "sharing a missing box does nothing");
+    expect(widgets.size() == 2, "sharing a missing box leaves the widgets alone");
+
+    const std::string sharedId = lockscreen_login_box::shareBox(widgets, outputs, "box-landscape");
+    expect(sharedId == "lockscreen-login-box@*", "the shared box gets the shared id");
+    expect(widgets.size() == 3, "per-output boxes stay when a box is shared");
+    const auto placements = desktop_widgets::resolveWidgetPlacements(outputs, widgets, noLayouts);
+    expect(
+        desktop_widgets::findPlacement(placements, sharedId, "DP-2") != nullptr,
+        "every output showing the shared layout uses the shared box"
+    );
+    const SharedLayoutResolver resolver(widgets, noLayouts, outputs);
+    const auto* box = resolver.loginBoxFor("DP-2");
+    expect(box != nullptr && box->id == sharedId, "other outputs use the shared box");
+    expect(
+        box != nullptr && box->positionMode == DesktopWidgetPositionMode::Relative && near(box->cx, 100.0F / 1920.0F),
+        "the shared box is relative and stays where the selected box is"
+    );
+    expect(box != nullptr && box->placementWidth == 0.0F, "a shared box has no reference output size");
+
+    // Sharing another box replaces the shared one.
+    widgets.back().cx = 300.0F;
+    expect(
+        lockscreen_login_box::shareBox(widgets, outputs, "box-dp2") == sharedId, "sharing again keeps the shared id"
+    );
+    expect(widgets.size() == 3, "there is only ever one shared box");
+    widgets.back().positionMode = DesktopWidgetPositionMode::Absolute;
+    widgets.back().cx = 400.0F;
+
+    const std::string backId = lockscreen_login_box::unshareBox(widgets, outputs, "DP-1");
+    expect(backId == "box-landscape", "unsharing goes back to the output's own box");
+    expect(widgets.size() == 2, "unsharing removes the shared box");
+    const auto landscape = std::ranges::find(widgets, backId, &DesktopWidgetState::id);
+    expect(
+        landscape != widgets.end() && landscape->cx == 400.0F && landscape->outputName == "Landscape",
+        "the output's box takes the shared position and keeps its selector"
+    );
+    expect(
+        landscape != widgets.end() && landscape->placementWidth == 1920.0F,
+        "an absolute box is rescaled from the output it went back to"
+    );
+    const auto other = std::ranges::find(widgets, std::string("box-dp2"), &DesktopWidgetState::id);
+    expect(
+        other != widgets.end() && other->cx == customised[1].cx, "other outputs get their own customised boxes back"
+    );
+
+    // Older versions could leave the shared id on a bound box. It must not end up on two boxes.
+    std::vector<DesktopWidgetState> stale = {
+        widget("lockscreen-login-box@*", "DP-1", "login_box"),
+        widget("box-dp2", "DP-2", "login_box"),
+    };
+    lockscreen_login_box::ensureWidgets(stale, noLayouts, outputs);
+    expect(stale[0].id == "lockscreen-login-box@DP-1", "a bound box gives up the shared id");
+    expect(stale[0].outputName == "DP-1", "a bound box stays bound when it gives up the shared id");
+    lockscreen_login_box::shareBox(stale, outputs, stale[0].id);
+    expect(
+        std::ranges::count(stale, std::string("lockscreen-login-box@*"), &DesktopWidgetState::id) == 1,
+        "sharing after the repair leaves one box with the shared id"
+    );
+
+    std::vector<DesktopWidgetState> unrepaired = {widget("lockscreen-login-box@*", "DP-1", "login_box")};
+    lockscreen_login_box::shareBox(unrepaired, outputs, "lockscreen-login-box@*");
+    expect(
+        unrepaired.size() == 1 && unrepaired[0].outputName == "*",
+        "sharing a box that still has the shared id does not duplicate it"
+    );
+
+    // Without an own box, one is made for the output.
+    std::vector<DesktopWidgetState> onlyShared = {widget("lockscreen-login-box@*", "*", "login_box")};
+    const std::string madeId = lockscreen_login_box::unshareBox(onlyShared, outputs, "DP-2");
+    expect(madeId == "lockscreen-login-box@DP-2", "unsharing makes a box when the output has none");
+    expect(onlyShared.size() == 1 && onlyShared[0].outputName == "DP-2", "the new box is bound to the output");
+    expect(lockscreen_login_box::unshareBox(onlyShared, outputs, "DP-2").empty(), "unsharing needs a shared box");
+  }
+
+  void testLockMonitors() {
+    using desktop_widgets::SharedLayoutResolver;
+    const std::vector<WaylandOutput> outputs = {makeOutput("DP-1"), makeOutput("DP-2")};
+    const std::unordered_map<std::string, DesktopWidgetOutputLayout> noLayouts;
+    std::vector<DesktopWidgetState> widgets = {
+        widget("box-dp1", "DP-1", "login_box"),
+        widget("box-dp2", "DP-2", "login_box"),
+    };
+    widgets[0].enabled = false;
+    const SharedLayoutResolver resolver(widgets, noLayouts, outputs);
+    const std::vector<std::string> onlyDp1 = {"DP-1"};
+    const std::vector<std::string> onlyDp2 = {"DP-2"};
+    const std::vector<std::string> missing = {"HDMI-A-1"};
+
+    expect(!resolver.showsLoginBox("DP-1"), "a disabled box is hidden while another output shows one");
+    expect(
+        resolver.showsLoginBox("DP-1", onlyDp1),
+        "a disabled box is shown when the only enabled one is on an output the lock screen doesn't use"
+    );
+    expect(!resolver.showsLoginBox("DP-1", onlyDp2), "a disabled box stays hidden when a used output shows one");
+    expect(!resolver.showsLoginBox("DP-1", missing), "with no listed monitor connected, every output counts");
   }
 
   constexpr std::string_view kConfig = R"(
@@ -479,6 +591,8 @@ int main() {
   testDrop();
   testLoginBoxSelection();
   testLoginBoxSelectors();
+  testShareLoginBox();
+  testLockMonitors();
   testConfigRoundTrip(root);
   testValidationWarnings(root);
 

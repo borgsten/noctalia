@@ -16,6 +16,7 @@
 #include "shell/desktop/desktop_widget_layout.h"
 #include "shell/keyboard_layout_label.h"
 #include "shell/lockscreen/lock_surface.h"
+#include "shell/lockscreen/lockscreen_login_box.h"
 #include "shell/lockscreen/lockscreen_session_actions.h"
 #include "shell/session/session_action_runner.h"
 #include "shell/wallpaper/wallpaper_geometry.h"
@@ -27,6 +28,7 @@
 #include <chrono>
 #include <cmath>
 #include <ctime>
+#include <span>
 #include <string>
 #include <thread>
 #include <utility>
@@ -1211,25 +1213,9 @@ bool LockScreen::isInteractiveOutput(const WaylandOutput& output) const {
   if (m_configService == nullptr) {
     return true;
   }
-
-  const auto& selectedMonitors = m_configService->config().lockscreen.monitors;
-  if (selectedMonitors.empty()) {
-    return true;
-  }
-
-  const bool anyConfiguredPresent =
-      m_wayland != nullptr && std::ranges::any_of(m_wayland->outputs(), [&](const WaylandOutput& candidate) {
-        return candidate.output != nullptr && std::ranges::any_of(selectedMonitors, [&](const std::string& match) {
-                 return outputMatchesSelector(match, candidate);
-               });
-      });
-  if (!anyConfiguredPresent) {
-    return true;
-  }
-
-  return std::ranges::any_of(selectedMonitors, [&](const std::string& match) {
-    return outputMatchesSelector(match, output);
-  });
+  const std::span<const WaylandOutput> outputs =
+      m_wayland != nullptr ? std::span<const WaylandOutput>(m_wayland->outputs()) : std::span<const WaylandOutput>();
+  return lockscreen_login_box::isLockOutput(m_configService->config().lockscreen.monitors, outputs, output);
 }
 
 void LockScreen::applyOutputRestriction() {

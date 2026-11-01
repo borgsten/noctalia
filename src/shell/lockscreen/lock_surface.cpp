@@ -1906,7 +1906,8 @@ lockscreen_login_box::LoginBoxStyle LockSurface::resolveLoginStyle() const {
 }
 
 bool LockSurface::isLoginBoxEnabled() const {
-  return m_config == nullptr || loginBoxResolver(*m_config, m_connection).showsLoginBox(m_outputKey);
+  return m_config == nullptr
+      || loginBoxResolver(*m_config, m_connection).showsLoginBox(m_outputKey, m_config->config().lockscreen.monitors);
 }
 
 std::string LockSurface::resolveStatusText(const lockscreen_login_box::LoginBoxStyle& style, bool& isError) const {

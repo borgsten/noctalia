@@ -79,14 +79,12 @@ namespace desktop_widgets {
   }
 
   WidgetDrop SharedLayoutResolver::dropOn(const DesktopWidgetState& widget, std::string_view key) const {
-    const bool stays = isSharedWidget(widget) ? showsShared(key) : isBoundTo(widget, key);
+    const bool stays = lockscreen_login_box::isLoginBoxWidget(widget)
+        || (isSharedWidget(widget) ? showsShared(key) : isBoundTo(widget, key));
     if (stays) {
       return {.outputName = widget.outputName};
     }
-    return {
-        .outputName = std::string(key),
-        .pinsShared = !lockscreen_login_box::isLoginBoxWidget(widget) && bindingHidesShared(key),
-    };
+    return {.outputName = std::string(key), .pinsShared = bindingHidesShared(key)};
   }
 
   std::vector<std::string> SharedLayoutResolver::outputsFor(const DesktopWidgetState& widget) const {
@@ -120,12 +118,16 @@ namespace desktop_widgets {
     return lockscreen_login_box::findForOutput(m_widgets, m_outputs, key);
   }
 
-  bool SharedLayoutResolver::showsLoginBox(std::string_view outputKey) const {
-    const auto shows = [this](std::string_view key) {
-      const DesktopWidgetState* loginBox = loginBoxFor(key);
+  bool SharedLayoutResolver::showsLoginBox(std::string_view key, std::span<const std::string> lockMonitors) const {
+    const auto shows = [this](std::string_view outputName) {
+      const DesktopWidgetState* loginBox = loginBoxFor(outputName);
       return loginBox == nullptr || loginBox->enabled;
     };
-    return shows(outputKey) || std::ranges::none_of(m_outputKeys, shows);
+    return shows(key) || std::ranges::none_of(m_outputs, [&](const WaylandOutput& output) {
+             return isUsable(output)
+                 && lockscreen_login_box::isLockOutput(lockMonitors, m_outputs, output)
+                 && shows(outputKey(output));
+           });
   }
 
   std::vector<WidgetPlacement> resolveWidgetPlacements(

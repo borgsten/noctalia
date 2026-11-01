@@ -259,8 +259,17 @@ namespace {
     if (surface == nullptr) {
       return {state.cx, state.cy};
     }
-    return desktop_widgets::resolveCenter(
-        state, static_cast<float>(surface->width()), static_cast<float>(surface->height()), width, height
+    const auto outputWidth = static_cast<float>(surface->width());
+    const auto outputHeight = static_cast<float>(surface->height());
+    const WidgetTransformClampResult center =
+        desktop_widgets::resolveCenter(state, outputWidth, outputHeight, width, height);
+    if (!desktop_widgets::isSharedWidget(state)) {
+      return center;
+    }
+    // A shared position can come from a larger output: keep the widget reachable, as the hosts do when drawing it.
+    return clampWidgetCenterToOutput(
+        center.cx, center.cy, width, height, 1.0F, state.rotationRad, outputWidth, outputHeight,
+        kDesktopWidgetMinVisibleFraction
     );
   }
 
@@ -893,7 +902,7 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
         surfacePtr->surface->requestFrameTick();
       }
     });
-    widget->setBox(widgetState.boxWidth, widgetState.boxHeight);
+    widget->setBox(lockscreen_login_box::boxWidthOnSurface(widgetState, surface.surface.get()), widgetState.boxHeight);
     widget->update(renderer);
     widget->layout(renderer);
     if ((widgetState.type == "audio_visualizer" || widgetState.type == "fancy_audio_visualizer")
@@ -1299,7 +1308,7 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
                   }),
                   ui::button({
                       .glyph = "devices",
-                      .enabled = hasSelectedWidget && !selectedIsLoginBox,
+                      .enabled = hasSelectedWidget,
                       .selected = selectedShared,
                       .variant = ButtonVariant::Default,
                       .tooltip = i18n::tr("desktop-widgets.editor.actions.all-monitors"),
@@ -1616,7 +1625,7 @@ void DesktopWidgetsEditor::applyViewState(
 
   if (refreshContent) {
     view.widget->setContentScale(widgetContentScale());
-    view.widget->setBox(state.boxWidth, state.boxHeight);
+    view.widget->setBox(lockscreen_login_box::boxWidthOnSurface(state, surface.surface.get()), state.boxHeight);
     view.widget->update(*renderer);
     view.widget->layout(*renderer);
     view.intrinsicWidth = std::max(1.0F, view.widget->intrinsicWidth());
@@ -1668,12 +1677,13 @@ void DesktopWidgetsEditor::applyScaleDragPreview(const DesktopWidgetState& state
       continue;
     }
 
-    view.intrinsicWidth = std::max(1.0F, state.boxWidth);
+    const float boxWidth = lockscreen_login_box::boxWidthOnSurface(state, surface->surface.get());
+    view.intrinsicWidth = std::max(1.0F, boxWidth);
     view.intrinsicHeight = std::max(1.0F, state.boxHeight);
 
     // Handles and the tile follow the cursor immediately; the content re-fits via a real layout in
     // prepareFrame, coalesced to one per frame from the pointer-move stream.
-    view.widget->setBox(state.boxWidth, state.boxHeight);
+    view.widget->setBox(boxWidth, state.boxHeight);
 
     const WidgetTransformClampResult center =
         pixelCenter(surface->surface.get(), state, view.intrinsicWidth, view.intrinsicHeight);
@@ -1816,6 +1826,14 @@ void DesktopWidgetsEditor::toggleSelectedWidgetEnabled() {
     }
   }
 
+  // A widget coming back on can give an auto output its own layout, which would hide the shared one.
+  if (!state->enabled && !lockscreen_login_box::isLoginBoxWidget(*state) && m_wayland != nullptr) {
+    if (const WaylandOutput* output = desktop_widgets::resolveStateOutput(*m_wayland, *state);
+        output != nullptr && !desktop_widgets::isSharedWidget(*state)) {
+      keepSharedLayoutShown(desktop_widgets::outputKey(*output));
+    }
+  }
+
   state->enabled = !state->enabled;
   requestLayout();
 }
@@ -1888,10 +1906,25 @@ void DesktopWidgetsEditor::flipSelectedWidgetVertical() {
 
 void DesktopWidgetsEditor::toggleSelectedWidgetShared(const std::string& outputName) {
   const DesktopWidgetState* primary = findWidgetState(m_selectedWidgetId);
-  if (primary == nullptr || lockscreen_login_box::isLoginBoxWidget(*primary) || m_wayland == nullptr) {
+  if (primary == nullptr || m_wayland == nullptr) {
     return;
   }
   const bool shared = !desktop_widgets::isSharedWidget(*primary);
+  if (lockscreen_login_box::isLoginBoxWidget(*primary)) {
+    const std::string boxId = shared
+        ? lockscreen_login_box::shareBox(m_snapshot.widgets, m_wayland->outputs(), m_selectedWidgetId)
+        : lockscreen_login_box::unshareBox(m_snapshot.widgets, m_wayland->outputs(), outputName);
+    if (boxId.empty()) {
+      return;
+    }
+    setSingleSelection(boxId);
+    if (const auto resolver = layoutResolver(m_snapshot, *m_wayland); shared && !resolver.showsShared(outputName)) {
+      m_snapshot.outputLayouts[resolver.layoutKeyFor(outputName)] = DesktopWidgetOutputLayout::Shared;
+    }
+    lockscreen_login_box::ensureWidgets(m_snapshot.widgets, m_snapshot.outputLayouts, m_wayland->outputs());
+    requestLayout();
+    return;
+  }
   if (!shared) {
     keepSharedLayoutShown(outputName);
   }
@@ -2400,7 +2433,8 @@ void DesktopWidgetsEditor::updateDrag() {
 
   float dragSceneX = m_currentEventSceneX;
   float dragSceneY = m_currentEventSceneY;
-  if (m_drag.mode == DragMode::Move) {
+  // A login box stays on its surface; every other widget follows the pointer across outputs.
+  if (m_drag.mode == DragMode::Move && !lockscreen_login_box::isLoginBoxWidget(*state)) {
     const WaylandOutput* sourceOutput = desktop_widgets::findOutputByKey(*m_wayland, m_drag.moveSourceOutputName);
     if (sourceOutput == nullptr) {
       sourceOutput = desktop_widgets::resolveStateOutput(*m_wayland, *state);

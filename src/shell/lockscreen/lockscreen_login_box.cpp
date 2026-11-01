@@ -5,6 +5,7 @@
 #include "shell/desktop/desktop_widget_settings_registry.h"
 #include "shell/desktop/shared_widget_layout.h"
 #include "ui/style.h"
+#include "wayland/layer_surface.h"
 
 #include <algorithm>
 #include <cmath>
@@ -397,11 +398,37 @@ namespace lockscreen_login_box {
     clampRadiusSetting(settings, kInputRadiusKey);
   }
 
+  namespace {
+
+    [[nodiscard]] std::string
+    unusedIdForOutput(const std::vector<DesktopWidgetState>& widgets, std::string_view outputKey) {
+      const std::string baseId = widgetIdForOutput(outputKey);
+      std::string id = baseId;
+      for (std::size_t suffix = 2; std::ranges::find(widgets, id, &DesktopWidgetState::id) != widgets.end(); ++suffix) {
+        id = std::format("{}-{}", baseId, suffix);
+      }
+      return id;
+    }
+
+  } // namespace
+
   void ensureWidgets(
       std::vector<DesktopWidgetState>& widgets,
       const std::unordered_map<std::string, DesktopWidgetOutputLayout>& outputLayouts,
       std::span<const WaylandOutput> outputs
   ) {
+    // The shared id can be left on a bound box by older versions, which let a shared box be dragged onto an output.
+    // Sharing later would then give two boxes the same id, so that box gets an id of its own.
+    const std::string sharedId = widgetIdForOutput(kSharedWidgetOutput);
+    for (auto& widget : widgets) {
+      if (isLoginBoxWidget(widget)
+          && widget.id == sharedId
+          && !desktop_widgets::isSharedWidget(widget)
+          && !widget.outputName.empty()) {
+        widget.id = unusedIdForOutput(widgets, widget.outputName);
+      }
+    }
+
     std::unordered_set<std::string> loginBoxSelectors;
     std::erase_if(widgets, [&](const DesktopWidgetState& widget) {
       if (!isLoginBoxWidget(widget)) {
@@ -477,12 +504,7 @@ namespace lockscreen_login_box {
       }
 
       DesktopWidgetState widget;
-      const std::string baseId = widgetIdForOutput(outputKey);
-      widget.id = baseId;
-      for (std::size_t suffix = 2; std::ranges::find(widgets, widget.id, &DesktopWidgetState::id) != widgets.end();
-           ++suffix) {
-        widget.id = std::format("{}-{}", baseId, suffix);
-      }
+      widget.id = unusedIdForOutput(widgets, outputKey);
       widget.type = std::string(kWidgetType);
       widget.outputName = outputKey;
       widget.rotationRad = 0.0F;
@@ -518,6 +540,94 @@ namespace lockscreen_login_box {
         }
       }
     }
+  }
+
+  bool isLockOutput(
+      std::span<const std::string> lockMonitors, std::span<const WaylandOutput> outputs, const WaylandOutput& output
+  ) {
+    if (lockMonitors.empty()) {
+      return true;
+    }
+    const auto isListed = [&](const WaylandOutput& candidate) {
+      return std::ranges::any_of(lockMonitors, [&](const std::string& match) {
+        return outputMatchesSelector(match, candidate);
+      });
+    };
+    const bool anyListedPresent = std::ranges::any_of(outputs, [&](const WaylandOutput& candidate) {
+      return candidate.output != nullptr && isListed(candidate);
+    });
+    return !anyListedPresent || isListed(output);
+  }
+
+  float boxWidthOnSurface(const DesktopWidgetState& state, const LayerSurface* surface) {
+    if (surface == nullptr || !isLoginBoxWidget(state)) {
+      return state.boxWidth;
+    }
+    return resolvePanelWidth(static_cast<float>(surface->width()), state.boxWidth, resolveStyle(state.settings).layout);
+  }
+
+  std::string shareBox(
+      std::vector<DesktopWidgetState>& widgets, std::span<const WaylandOutput> outputs, const std::string& sourceId
+  ) {
+    const auto source = std::ranges::find(widgets, sourceId, &DesktopWidgetState::id);
+    if (source == widgets.end() || !isLoginBoxWidget(*source)) {
+      return {};
+    }
+    DesktopWidgetState shared = *source;
+    shared.id = widgetIdForOutput(kSharedWidgetOutput);
+    shared.outputName = std::string(kSharedWidgetOutput);
+    // A shared position has no single output to be scaled from.
+    shared.placementWidth = 0.0F;
+    shared.placementHeight = 0.0F;
+    if (const WaylandOutput* output = desktop_widgets::selectOutput(outputs, source->outputName).output;
+        output != nullptr && !desktop_widgets::isRelativeWidget(shared)) {
+      const float outputWidth = desktop_widgets::outputLogicalWidth(*output);
+      const float outputHeight = desktop_widgets::outputLogicalHeight(*output);
+      const float width = resolvePanelWidth(outputWidth, shared.boxWidth, resolveStyle(shared.settings).layout);
+      const WidgetTransformClampResult center =
+          desktop_widgets::resolveCenter(shared, outputWidth, outputHeight, width, shared.boxHeight);
+      shared.positionMode = DesktopWidgetPositionMode::Relative;
+      desktop_widgets::storeCenter(shared, outputWidth, outputHeight, width, shared.boxHeight, center.cx, center.cy);
+    }
+    std::erase_if(widgets, [&shared](const DesktopWidgetState& widget) {
+      return isLoginBoxWidget(widget) && (desktop_widgets::isSharedWidget(widget) || widget.id == shared.id);
+    });
+    std::string id = shared.id;
+    widgets.push_back(std::move(shared));
+    return id;
+  }
+
+  std::string unshareBox(
+      std::vector<DesktopWidgetState>& widgets, std::span<const WaylandOutput> outputs, std::string_view outputKey
+  ) {
+    const auto isSharedBox = [](const DesktopWidgetState& widget) {
+      return isLoginBoxWidget(widget) && desktop_widgets::isSharedWidget(widget);
+    };
+    const auto shared = std::ranges::find_if(widgets, isSharedBox);
+    const WaylandOutput* output = desktop_widgets::selectOutput(outputs, std::string(outputKey)).output;
+    if (shared == widgets.end() || output == nullptr) {
+      return {};
+    }
+
+    DesktopWidgetState box = *shared;
+    if (!desktop_widgets::isRelativeWidget(box)) {
+      box.placementWidth = desktop_widgets::outputLogicalWidth(*output);
+      box.placementHeight = desktop_widgets::outputLogicalHeight(*output);
+    }
+    std::string id;
+    if (const DesktopWidgetState* existing = findForOutput(widgets, outputs, outputKey); existing != nullptr) {
+      id = existing->id;
+      box.id = id;
+      box.outputName = existing->outputName;
+      *std::ranges::find(widgets, id, &DesktopWidgetState::id) = std::move(box);
+    } else {
+      id = unusedIdForOutput(widgets, outputKey);
+      box.id = id;
+      box.outputName = std::string(outputKey);
+      widgets.push_back(std::move(box));
+    }
+    std::erase_if(widgets, isSharedBox);
+    return id;
   }
 
 } // namespace lockscreen_login_box

@@ -1002,7 +1002,7 @@ void DesktopWidgetsEditor::applySettingChange(const std::string& key, WidgetSett
         surfacePtr->surface->requestFrameTick();
       }
     });
-    newWidget->setBox(state->boxWidth, state->boxHeight);
+    newWidget->setBox(lockscreen_login_box::boxWidthOnSurface(*state, surfacePtr->surface.get()), state->boxHeight);
     newWidget->update(renderer);
     newWidget->layout(renderer);
 

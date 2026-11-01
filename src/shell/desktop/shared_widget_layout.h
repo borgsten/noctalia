@@ -47,17 +47,19 @@ namespace desktop_widgets {
     // Whether binding a widget to the output would make an auto output stop showing the shared layout.
     [[nodiscard]] bool bindingHidesShared(std::string_view outputKey) const;
 
-    // Dropping `widget` on the output: a shared widget stays shared while the output shows the shared
-    // layout, a bound widget keeps its selector while that resolves to the output, otherwise it binds.
+    // Dropping `widget` on the output: a login box stays where it is, since each output has exactly one. A shared
+    // widget stays shared while the output shows the shared layout, a bound widget keeps its selector while that
+    // resolves to the output, otherwise it binds.
     [[nodiscard]] WidgetDrop dropOn(const DesktopWidgetState& widget, std::string_view outputKey) const;
 
     // The login box the output uses: the shared one if the output shows the shared layout and one
     // exists, otherwise the one bound to the output. nullptr if there is none.
     [[nodiscard]] const DesktopWidgetState* loginBoxFor(std::string_view outputKey) const;
 
-    // Whether the output shows a login box: if its box is enabled or it has none (the default box), or
-    // if no output would show one, so the screen can always be unlocked.
-    [[nodiscard]] bool showsLoginBox(std::string_view outputKey) const;
+    // Whether the output shows a login box: if its box is enabled or it has none (the default box), or if no output
+    // the lock screen is interactive on would show one, so the screen can always be unlocked. `lockMonitors` is
+    // lockscreen.monitors; empty means every output.
+    [[nodiscard]] bool showsLoginBox(std::string_view outputKey, std::span<const std::string> lockMonitors = {}) const;
 
   private:
     const std::vector<DesktopWidgetState>& m_widgets;
